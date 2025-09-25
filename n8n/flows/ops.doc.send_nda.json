@@ -1,0 +1,149 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "[START] ops.doc.send_nda",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        0
+      ],
+      "id": "236d9453-abe1-4cf3-acb6-ae0d4b53e438"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $json || {};\nif (!input.lead_id) {\n  throw new Error('lead_id is required for NDA sending');\n}\nif (!input.email) {\n  throw new Error('email is required for NDA sending');\n}\n\nconst fullName = input.full_name || 'Client';\nconst externalId = input.external_id || `nda-${input.lead_id}`;\nconst documentUrl = input.document_url || `https://chain.do/doc/${externalId}`;\n\nreturn [{\n  ...input,\n  full_name: fullName,\n  external_id: externalId,\n  document_url: documentUrl\n}];\n"
+      },
+      "name": "0. Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        0
+      ],
+      "id": "1d45af3c-a9ab-408b-8f65-b46009a7dde0"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upsert AS (\n  INSERT INTO documents (lead_id, doc_type, provider, external_id, status, link_url, sent_at)\n  VALUES ($1, 'nda', 'chaindoc', $2, 'sent', $3, NOW())\n  ON CONFLICT (external_id) DO UPDATE\n    SET status = 'sent',\n        link_url = EXCLUDED.link_url,\n        sent_at = NOW(),\n        updated_at = NOW()\n  RETURNING id\n)\nSELECT id FROM upsert\nUNION ALL\nSELECT id FROM documents WHERE external_id = $2\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.lead_id, $json.external_id, $json.document_url ] }}"
+        }
+      },
+      "name": "1. Upsert Document",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -176,
+        0
+      ],
+      "id": "08f910a6-fe07-441f-8427-74b7d16f5144",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads\nSET stage = CASE\n      WHEN stage IN ('nda_signed','won','lost') THEN stage\n      ELSE 'sent_nda'\n    END,\n    updated_at = NOW()\nWHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.lead_id ] }}"
+        }
+      },
+      "name": "2. Update Lead Stage",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        80,
+        0
+      ],
+      "id": "186824ed-d753-4bd4-9825-81e5d64b4f39",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "=📄 NDA отправлено\n\nЛид: {{ $json.full_name }}\nEmail: {{ $json.email }}\nДокумент: {{ $json.document_url }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "3. Notify Team (NDA)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        0
+      ],
+      "id": "c67438cc-70af-469a-89e3-494bd705bf92",
+      "webhookId": "cc404f9c-b53b-44a9-b829-6a28a02981fa",
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "[START] ops.doc.send_nda": {
+      "main": [
+        [
+          {
+            "node": "0. Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "1. Upsert Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Upsert Document": {
+      "main": [
+        [
+          {
+            "node": "2. Update Lead Stage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Update Lead Stage": {
+      "main": [
+        [
+          {
+            "node": "3. Notify Team (NDA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "23fff2d7-47f0-40ce-9fb0-a7b485799360"
+  }
+}

@@ -5,7 +5,10 @@
       "name": "[START] dev_request processor",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [-16, 0],
+      "position": [
+        -16,
+        0
+      ],
       "id": "59be16cb-cc13-4f5c-80de-b8ae8e104c13"
     },
     {
@@ -74,7 +77,10 @@
       "name": "0. Ctx & Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [192, 0],
+      "position": [
+        192,
+        0
+      ],
       "id": "3946ade5-25f0-46d7-9b95-a53d55880f77"
     },
     {
@@ -88,7 +94,10 @@
       "name": "1a. Load Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [400, 0],
+      "position": [
+        400,
+        0
+      ],
       "id": "b2a4f332-fd82-42bd-81ed-d7fd9733e5a3",
       "alwaysOutputData": true,
       "credentials": {
@@ -112,7 +121,10 @@
       "name": "1b. IF: Template Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [592, 0],
+      "position": [
+        592,
+        0
+      ],
       "id": "3fac7349-da2a-451a-be0b-25ac6cf4a028"
     },
     {
@@ -124,7 +136,10 @@
       "name": "1c-fallback. Load EN Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [864, 112],
+      "position": [
+        864,
+        112
+      ],
       "id": "f556efe0-f454-4077-a966-e4b3dd7e02a7",
       "credentials": {
         "postgres": {
@@ -156,7 +171,10 @@
       "name": "1d-prep. Prepare AI Prompt Vars",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1072, 112],
+      "position": [
+        1072,
+        112
+      ],
       "id": "1b9f52c0-722f-404c-8089-0a4b0cd2d472"
     },
     {
@@ -165,7 +183,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1616, 112],
+      "position": [
+        1616,
+        112
+      ],
       "name": "1e. Parse AI JSON",
       "id": "1842fcf4-dae0-45d5-83b4-ac7acfb7266f"
     },
@@ -193,7 +214,10 @@
       "name": "1d-translate. AI Translate Template",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
       "typeVersion": 1,
-      "position": [1280, 112],
+      "position": [
+        1280,
+        112
+      ],
       "id": "3a3e7260-0120-4c08-9b6a-6c1c5a41558d",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -227,7 +251,10 @@
       "name": "1f. Shape 'True' Path Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [864, -96],
+      "position": [
+        864,
+        -96
+      ],
       "id": "c96111c2-3b50-4715-ab50-13cfb0c7696f"
     },
     {
@@ -241,7 +268,10 @@
       "name": "2. Merge Template Branches",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [1856, -80],
+      "position": [
+        1856,
+        -80
+      ],
       "id": "bda818f2-a508-4333-b5c2-b3d2673901b5"
     },
     {
@@ -251,7 +281,10 @@
       "name": "2b. Compose Initial Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2064, -80],
+      "position": [
+        2064,
+        -80
+      ],
       "id": "258bebe4-742f-4f1c-8e8c-9b30292e3f05"
     },
     {
@@ -260,7 +293,10 @@
       },
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2272, -80],
+      "position": [
+        2272,
+        -80
+      ],
       "id": "a47f27f4-2a7f-4566-a489-7d319ca80557",
       "name": "Wait",
       "webhookId": "3d07f095-a6fe-4ff0-abde-8851b17f892c"
@@ -276,7 +312,10 @@
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [2480, -80],
+      "position": [
+        2480,
+        -80
+      ],
       "id": "50462052-938f-4046-95a2-0b30b4d79465",
       "name": "Send a message",
       "webhookId": "00830c7f-f5de-49ce-b243-d5cc0c47b996",
@@ -298,7 +337,10 @@
       "name": "4b. Log Outbound Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2688, -80],
+      "position": [
+        2688,
+        -80
+      ],
       "id": "7dd54bc5-356e-4ac6-843c-3feb69829b7d",
       "credentials": {
         "postgres": {
@@ -318,7 +360,10 @@
       "name": "4c. Create Task: Follow-up",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2896, -80],
+      "position": [
+        2896,
+        -80
+      ],
       "id": "66c0f1f9-05c6-47c0-8d90-d28722960339",
       "credentials": {
         "postgres": {
@@ -338,8 +383,279 @@
       "name": "4d. Update Lead & Conv. Status",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [3120, -80],
+      "position": [
+        3120,
+        -80
+      ],
       "id": "eb86b2a9-0ea1-494a-9265-4aa03200aa5f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "name": "5a. Wait 24h Before Follow-up",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3328,
+        -80
+      ],
+      "id": "e4cda59d-9ffc-4600-bbcd-bc1496e33a4e"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  EXISTS (\n    SELECT 1 FROM bookings\n    WHERE lead_id = $1\n      AND status IN ('scheduled','rescheduled','attended')\n      AND scheduled_start >= NOW() - interval '30 days'\n  ) AS has_booking,\n  EXISTS (\n    SELECT 1 FROM messages\n    WHERE conversation_id = $2\n      AND direction = 'inbound'\n      AND message_ts >= NOW() - interval '7 days'\n  ) AS has_inbound_reply;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, $('0. Ctx & Config').item.json.conversation_id ] }}"
+        }
+      },
+      "name": "5b. Check Engagement (24h)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3536,
+        -80
+      ],
+      "id": "18c61833-5059-41d5-be66-3460ddfc49d2",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($('5b. Check Engagement (24h)').item.json.has_booking || $('5b. Check Engagement (24h)').item.json.has_inbound_reply) ? 'true' : 'false' }}",
+              "operation": "isEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "name": "5c. Need Follow-up #1?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        3744,
+        -80
+      ],
+      "id": "a8b65e1f-36b6-45b6-98ec-82199a3018db"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: 'Напомню про звонок',\n    body: `Привет, {{name}}!\\n\\nВчера отправляли письмо с вопросами и ссылкой на календарь. Дайте знать, если удобно созвониться — можно сразу забронировать слот: {{calendly_url}}.\\n\\nЕсли нужен другой формат или время, просто ответьте на это письмо.\\n\\nСпасибо!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Quick follow-up about our call',\n    body: `Hi {{name}},\\n\\nYesterday we sent over a few scoping questions and a Calendly link. Happy to jump on a call whenever it suits you: {{calendly_url}}.\\n\\nIf another format or time works better, just hit reply — we'll adjust.\\n\\nThanks!\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Przypomnienie o rozmowie',\n    body: `Cześć {{name}}!\\n\\nWczoraj wysłaliśmy kilka pytań oraz link do kalendarza. Jeśli pasuje Ci rozmowa, zarezerwuj dogodny termin: {{calendly_url}}.\\n\\nGdyby lepsza była inna forma kontaktu lub godzina, odpisz proszę na tę wiadomość.\\n\\nDzięki!\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body)\n}];\n"
+      },
+      "name": "5d. Compose Follow-up #1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3952,
+        -176
+      ],
+      "id": "67f6b567-f2f7-4ec5-9433-d7ca55d1dde3"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 6) + 3 }}",
+        "unit": "minutes"
+      },
+      "name": "5e. Humanize Delay #1",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4160,
+        -176
+      ],
+      "id": "2e7bfc65-adf7-421a-81d9-931e50987cb5",
+      "webhookId": "1c715e43-40ea-44cb-96ec-4a18d1042b1f"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Ctx & Config').item.json.email }}",
+        "subject": "={{ $('5d. Compose Follow-up #1').item.json.followup_subject }}",
+        "message": "={{ $('5d. Compose Follow-up #1').item.json.followup_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "5f. Send Follow-up #1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4368,
+        -176
+      ],
+      "id": "72563577-bf31-4919-89d5-98164930bd1c",
+      "webhookId": "87349fff-c7a9-4e0e-a611-7ee55d268bae",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, body, external_message_id, meta)\nVALUES ($1, 'outbound', 'email', $2, $3, $4::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('5d. Compose Follow-up #1').item.json.followup_body, $('5f. Send Follow-up #1').item.json.id, JSON.stringify({ subject: $('5d. Compose Follow-up #1').item.json.followup_subject, kind: 'followup_1' }) ] }}"
+        }
+      },
+      "name": "5g. Log Follow-up #1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4576,
+        -176
+      ],
+      "id": "ae50667e-9026-4152-b151-03235da00a7f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 48,
+        "unit": "hours"
+      },
+      "name": "6a. Wait 48h Before Follow-up",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4784,
+        -176
+      ],
+      "id": "d5e8f347-fc2e-4e25-9a97-a47df2d1ef08"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  EXISTS (\n    SELECT 1 FROM bookings\n    WHERE lead_id = $1\n      AND status IN ('scheduled','rescheduled','attended')\n      AND scheduled_start >= NOW() - interval '30 days'\n  ) AS has_booking,\n  EXISTS (\n    SELECT 1 FROM messages\n    WHERE conversation_id = $2\n      AND direction = 'inbound'\n      AND message_ts >= NOW() - interval '7 days'\n  ) AS has_inbound_reply;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, $('0. Ctx & Config').item.json.conversation_id ] }}"
+        }
+      },
+      "name": "6b. Re-check Engagement (72h)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4992,
+        -176
+      ],
+      "id": "4089af72-6d53-4c05-8263-613080371688",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($('6b. Re-check Engagement (72h)').item.json.has_booking || $('6b. Re-check Engagement (72h)').item.json.has_inbound_reply) ? 'true' : 'false' }}",
+              "operation": "isEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "name": "6c. Need Follow-up #2?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        5200,
+        -176
+      ],
+      "id": "099471bc-689d-4237-be51-a6b51857536c"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: 'Оставить заявку ещё актуально?',\n    body: `{{name}}, добрый день!\\n\\nХотим убедиться, что вы получили наши прошлые письма. Мы готовы подключиться и обсудить задачу — можно выбрать время тут: {{calendly_url}}.\\n\\nЕсли приоритеты поменялись, просто дайте знать, чтобы мы обновили статус.\\n\\nХорошего дня!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Should we keep the slot on hold?',\n    body: `Hi {{name}},\\n\\nChecking in in case the previous emails got lost. We can jump on a quick call whenever you're ready — here is the calendar again: {{calendly_url}}.\\n\\nIf plans changed, just let us know and we'll update our pipeline.\\n\\nAll the best,\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Czy rozmowa jest wciąż aktualna?',\n    body: `Cześć {{name}}!\\n\\nSprawdzamy, czy nasze poprzednie wiadomości dotarły. Chętnie porozmawiamy — możesz wybrać termin tutaj: {{calendly_url}}.\\n\\nJeśli priorytety się zmieniły, daj nam znać, zaktualizujemy status.\\n\\nPozdrawiam,\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body)\n}];\n"
+      },
+      "name": "6d. Compose Follow-up #2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5408,
+        -272
+      ],
+      "id": "7b5c1c18-2c78-4f32-854a-e9829dda2425"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 6) + 3 }}",
+        "unit": "minutes"
+      },
+      "name": "6e. Humanize Delay #2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        5616,
+        -272
+      ],
+      "id": "740a8ed8-b16a-4239-a983-c4649ce5f0a8",
+      "webhookId": "9a90cdb8-4818-4128-a556-89967a0703f8"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Ctx & Config').item.json.email }}",
+        "subject": "={{ $('6d. Compose Follow-up #2').item.json.followup_subject }}",
+        "message": "={{ $('6d. Compose Follow-up #2').item.json.followup_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "6f. Send Follow-up #2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        5824,
+        -272
+      ],
+      "id": "faa0883b-52bb-42a2-ae04-8d2ddf1ec05a",
+      "webhookId": "7cefe047-3f70-4a9b-8f2d-a2d9cbcc5a29",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, body, external_message_id, meta)\nVALUES ($1, 'outbound', 'email', $2, $3, $4::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('6d. Compose Follow-up #2').item.json.followup_body, $('6f. Send Follow-up #2').item.json.id, JSON.stringify({ subject: $('6d. Compose Follow-up #2').item.json.followup_subject, kind: 'followup_2' }) ] }}"
+        }
+      },
+      "name": "6g. Log Follow-up #2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6032,
+        -272
+      ],
+      "id": "485dc032-b5fe-4224-830d-8cdfc437cca9",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -515,6 +831,162 @@
         [
           {
             "node": "4d. Update Lead & Conv. Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4d. Update Lead & Conv. Status": {
+      "main": [
+        [
+          {
+            "node": "5a. Wait 24h Before Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Wait 24h Before Follow-up": {
+      "main": [
+        [
+          {
+            "node": "5b. Check Engagement (24h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5b. Check Engagement (24h)": {
+      "main": [
+        [
+          {
+            "node": "5c. Need Follow-up #1?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5c. Need Follow-up #1?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "5d. Compose Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5d. Compose Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "5e. Humanize Delay #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5e. Humanize Delay #1": {
+      "main": [
+        [
+          {
+            "node": "5f. Send Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Send Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "5g. Log Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5g. Log Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "6a. Wait 48h Before Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Wait 48h Before Follow-up": {
+      "main": [
+        [
+          {
+            "node": "6b. Re-check Engagement (72h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Re-check Engagement (72h)": {
+      "main": [
+        [
+          {
+            "node": "6c. Need Follow-up #2?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Need Follow-up #2?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "6d. Compose Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6d. Compose Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "6e. Humanize Delay #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6e. Humanize Delay #2": {
+      "main": [
+        [
+          {
+            "node": "6f. Send Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f. Send Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "6g. Log Follow-up #2",
             "type": "main",
             "index": 0
           }
