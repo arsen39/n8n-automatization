@@ -1,0 +1,530 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "[START] dev_request processor",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [-16, 0],
+      "id": "59be16cb-cc13-4f5c-80de-b8ae8e104c13"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2138a08d-8a50-4bf6-9407-c4667a4e40fe",
+              "name": "lead_id",
+              "value": "={{ $json.lead_id }}",
+              "type": "string"
+            },
+            {
+              "id": "67417578-8316-43c3-8f0d-5f6535d8e7c1",
+              "name": "contact_id",
+              "value": "={{ $json.contact_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d0e1b644-2458-45ac-9b93-875f532a875a",
+              "name": "conversation_id",
+              "value": "={{ $json.conversation_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c1f6b15a-f12b-4ba5-a4f6-7b8ac42c701d",
+              "name": "full_name",
+              "value": "={{ $json.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "7876a47a-18f6-4171-85b3-3a72d7cf7d0a",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "ab833534-192a-4318-8f85-780c855a8220",
+              "name": "lang",
+              "value": "={{ ['ru', 'en', 'pl'].includes($json.preferred_lang) ? $json.preferred_lang : 'ru' }}",
+              "type": "string"
+            },
+            {
+              "id": "0d1894a7-8f55-46aa-9d52-7b065a4e5113",
+              "name": "timezone",
+              "value": "={{ $json.timezone || 'Europe/Warsaw' }}",
+              "type": "string"
+            },
+            {
+              "id": "df47e58a-a55e-49b5-90a6-121f1816f0ea",
+              "name": "calendly_base_url",
+              "value": "https://calendly.com/arsenii-ovsianykov-idealogic",
+              "type": "string"
+            },
+            {
+              "id": "722125bb-d130-4e55-901c-d70379fd60c7",
+              "name": "from_name",
+              "value": "Arsenii from Idealogic",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "0. Ctx & Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [192, 0],
+      "id": "3946ade5-25f0-46d7-9b95-a53d55880f77"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'dev_request.initial.' + $('0. Ctx & Config').item.json.lang ] }}"
+        }
+      },
+      "name": "1a. Load Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [400, 0],
+      "id": "b2a4f332-fd82-42bd-81ed-d7fd9733e5a3",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('1a. Load Template').item.json.subject_template }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "1b. IF: Template Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [592, 0],
+      "id": "3fac7349-da2a-451a-be0b-25ac6cf4a028"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = 'dev_request.initial.en';",
+        "options": {}
+      },
+      "name": "1c-fallback. Load EN Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [864, 112],
+      "id": "f556efe0-f454-4077-a966-e4b3dd7e02a7",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f3e589f-8e54-4712-9c29-3b951167a1aa",
+              "name": "en_subject",
+              "value": "={{ $('1c-fallback. Load EN Template').item.json.subject_template }}",
+              "type": "string"
+            },
+            {
+              "id": "e21b798b-2856-4b95-a22d-6060c4004940",
+              "name": "en_body",
+              "value": "={{ $('1c-fallback. Load EN Template').item.json.body_template }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "1d-prep. Prepare AI Prompt Vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1072, 112],
+      "id": "1b9f52c0-722f-404c-8089-0a4b0cd2d472"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rootText = typeof $json.text === 'string' ? $json.text : null;\nconst contentText = $json.content?.[0]?.text ?? null;\nconst text = rootText ?? contentText ?? '';\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start === -1 || end === -1) throw new Error('AI: no JSON found');\nconst jsonStr = text.slice(start, end + 1);\n\nconst clean = jsonStr.replace(/\\u0000/g, '');\nreturn [ JSON.parse(clean) ];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1616, 112],
+      "name": "1e. Parse AI JSON",
+      "id": "1842fcf4-dae0-45d5-83b4-ac7acfb7266f"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-3-5-haiku-20241022",
+          "mode": "list",
+          "cachedResultName": "claude-3-5-haiku-20241022"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a translation API. Your only task is to translate the user's provided JSON content into the specified target language.\n\nRULES:\n1. Translate the text values accurately.\n2. You MUST preserve placeholders like `{{name}}` and `{{calendly_url}}` exactly as they are. DO NOT translate the content inside {{...}}.\n3. Return ONLY a valid, minified JSON object with the exact same keys as the input. No comments, no prose, no explanations.",
+              "role": "assistant"
+            },
+            {
+              "content": "=TARGET LANGUAGE: \"{{ $('0. Ctx & Config').item.json.lang }}\"\n---\nJSON TO TRANSLATE:\n{\n  \"subject\": \"{{ $('1d-prep. Prepare AI Prompt Vars').item.json.en_subject }}\",\n  \"body\": \"{{ $('1d-prep. Prepare AI Prompt Vars').item.json.en_body }}\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "1d-translate. AI Translate Template",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [1280, 112],
+      "id": "3a3e7260-0120-4c08-9b6a-6c1c5a41558d",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "anthropicApi": {
+          "id": "GIfdwzVM7KrSSX07",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e0b5f1f0-4e58-4e89-913a-a1b9b9423c8e",
+              "name": "=subject_template",
+              "value": "={{ $('1a. Load Template').item.json.subject_template }}",
+              "type": "string"
+            },
+            {
+              "id": "18c8b6d8-b391-4470-a38f-6fd6a8e805f1",
+              "name": "body_template",
+              "value": "={{ $('1a. Load Template').item.json.body_template }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "1f. Shape 'True' Path Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [864, -96],
+      "id": "c96111c2-3b50-4715-ab50-13cfb0c7696f"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "name": "2. Merge Template Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1856, -80],
+      "id": "bda818f2-a508-4333-b5c2-b3d2673901b5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get data from sources\nconst config = $('0. Ctx & Config').item.json;\nconst template = $('2. Merge Template Branches').item.json;\n\n// 2. Safely get the subject and body, checking for both possible key names\nconst subjectText = template.subject_template || template.subject;\nconst bodyText = template.body_template || template.body;\n\n// Check if we actually have text to work with\nif (typeof subjectText !== 'string' || typeof bodyText !== 'string') {\n  throw new Error('Could not find subject or body text in the input from the Merge node.');\n}\n\n// 3. Prepare variables with fallbacks\nconst clientName = config.full_name || 'there';\nconst fromName = config.from_name || 'Team';\nconst calendlyUrl = config.calendly_base_url || '';\n\n// 4. Replace all placeholders\nlet finalSubject = subjectText.replace(/{{name}}/g, clientName);\n\nlet finalBody = bodyText\n  .replace(/{{name}}/g, clientName)\n  .replace(/{{calendly_url}}/g, calendlyUrl)\n  .replace(/{{from_name}}/g, fromName);\n\n// 5. Return all previous data, adding the final composed email text\nreturn [{\n  ...$item.json,\n  final_subject: finalSubject,\n  final_body: finalBody\n}];"
+      },
+      "name": "2b. Compose Initial Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2064, -80],
+      "id": "258bebe4-742f-4f1c-8e8c-9b30292e3f05"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * 5) + 1 }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2272, -80],
+      "id": "a47f27f4-2a7f-4566-a489-7d319ca80557",
+      "name": "Wait",
+      "webhookId": "3d07f095-a6fe-4ff0-abde-8851b17f892c"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Ctx & Config').item.json.email }}",
+        "subject": "={{ $('2b. Compose Initial Reply').item.json.final_subject }}",
+        "message": "={{ $('2b. Compose Initial Reply').item.json.final_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2480, -80],
+      "id": "50462052-938f-4046-95a2-0b30b4d79465",
+      "name": "Send a message",
+      "webhookId": "00830c7f-f5de-49ce-b243-d5cc0c47b996",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (\n  conversation_id,\n  direction,\n  medium,\n  body,\n  external_message_id,\n  meta\n)\nVALUES (\n  $1,\n  'outbound',\n  'email',\n  $2,\n  $3,\n  $4::jsonb\n);",
+        "options": {
+          "queryReplacement": "={{ [\n  $('0. Ctx & Config').item.json.conversation_id,\n  $('2b. Compose Initial Reply').item.json.final_body,\n  $('Send a message').item.json.id,\n  JSON.stringify({ subject: $('2b. Compose Initial Reply').item.json.final_subject })\n] }}"
+        }
+      },
+      "name": "4b. Log Outbound Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2688, -80],
+      "id": "7dd54bc5-356e-4ac6-843c-3feb69829b7d",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tasks (lead_id, type, due_at, notes)\nVALUES ($1, 'schedule_call', NOW() + interval '24 hours', $2);",
+        "options": {
+          "queryReplacement": "={{ [\n  $('0. Ctx & Config').item.json.lead_id,\n  'Check if ' + ($('0. Ctx & Config').item.json.full_name || 'the new lead') + ' has booked a call or replied.'\n] }}"
+        }
+      },
+      "name": "4c. Create Task: Follow-up",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2896, -80],
+      "id": "66c0f1f9-05c6-47c0-8d90-d28722960339",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads\nSET stage = 'contacted', updated_at = NOW()\nWHERE id = $1;\n\nUPDATE conversations\nSET last_message_at = NOW()\nWHERE id = $2;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('0. Ctx & Config').item.json.lead_id,\n  $('0. Ctx & Config').item.json.conversation_id\n] }}"
+        }
+      },
+      "name": "4d. Update Lead & Conv. Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [3120, -80],
+      "id": "eb86b2a9-0ea1-494a-9265-4aa03200aa5f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "[START] dev_request processor": {
+      "main": [
+        [
+          {
+            "node": "0. Ctx & Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Ctx & Config": {
+      "main": [
+        [
+          {
+            "node": "1a. Load Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1a. Load Template": {
+      "main": [
+        [
+          {
+            "node": "1b. IF: Template Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. IF: Template Found?": {
+      "main": [
+        [
+          {
+            "node": "1f. Shape 'True' Path Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "1c-fallback. Load EN Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1c-fallback. Load EN Template": {
+      "main": [
+        [
+          {
+            "node": "1d-prep. Prepare AI Prompt Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1d-prep. Prepare AI Prompt Vars": {
+      "main": [
+        [
+          {
+            "node": "1d-translate. AI Translate Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1e. Parse AI JSON": {
+      "main": [
+        [
+          {
+            "node": "2. Merge Template Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "1d-translate. AI Translate Template": {
+      "main": [
+        [
+          {
+            "node": "1e. Parse AI JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1f. Shape 'True' Path Data": {
+      "main": [
+        [
+          {
+            "node": "2. Merge Template Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Merge Template Branches": {
+      "main": [
+        [
+          {
+            "node": "2b. Compose Initial Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2b. Compose Initial Reply": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "4b. Log Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Log Outbound Message": {
+      "main": [
+        [
+          {
+            "node": "4c. Create Task: Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4c. Create Task: Follow-up": {
+      "main": [
+        [
+          {
+            "node": "4d. Update Lead & Conv. Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
+  }
+}

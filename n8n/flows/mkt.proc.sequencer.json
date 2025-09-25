@@ -1,0 +1,230 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{}]
+        }
+      },
+      "name": "[START] Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [-864, 48],
+      "id": "66d2801d-c481-42bb-942b-37b52dc0cbe1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.id AS lead_id, c.full_name, c.preferred_lang, c.email AS primary_email, conv.id as conversation_id\nFROM leads l\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nLEFT JOIN lead_tags lt ON l.id = lt.lead_id AND lt.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nWHERE l.stage = 'contacted'\n  AND l.updated_at BETWEEN NOW() - interval '25 hours' AND NOW() - interval '24 hours'\n  AND lt.lead_id IS NULL;",
+        "options": {}
+      },
+      "name": "1a. Get Leads for Follow-up 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-624, -160],
+      "id": "e9162a06-01c0-46cb-abea-77a1f46c83c7",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.id AS lead_id, c.full_name, c.preferred_lang, c.email AS primary_email, conv.id as conversation_id\nFROM leads l\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nJOIN lead_tags lt1 ON l.id = lt1.lead_id AND lt1.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nLEFT JOIN lead_tags lt2 ON l.id = lt2.lead_id AND lt2.tag_id = (SELECT id FROM tags WHERE name = 'followup_2_sent')\nWHERE l.stage = 'contacted'\n  AND l.updated_at BETWEEN NOW() - interval '73 hours' AND NOW() - interval '72 hours'\n  AND lt2.lead_id IS NULL;",
+        "options": {}
+      },
+      "name": "1b. Get Leads for Follow-up 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-624, 240],
+      "id": "8ba62f4a-f0b2-4887-90da-70fddfd40c7f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Leads F1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [-384, -160],
+      "id": "3b21c5b7-9546-4dfe-9a5e-3eb3f2185f97"
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $json;\nlead.lang = ['ru', 'en', 'pl'].includes(lead.preferred_lang) ? lead.preferred_lang : 'ru';\nlead.template_name = `dev_request.followup1.${lead.lang}`;\nlead.fallback_template_name = 'dev_request.followup1.en';\nlead.tag_to_add = 'followup_1_sent'\nreturn [lead];"
+      },
+      "name": "Prep F1 Vars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-144, -160],
+      "id": "559146c8-b283-4bcb-a447-0c4193166157"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "mhcfAhLpYPok9tpW",
+          "mode": "list",
+          "cachedResultName": "1.1 Отправка фолоу-апа"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "name": "[SUB] Send Email F1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [96, -160],
+      "id": "0ada3b52-6090-408f-a9f7-93ce48596ef2",
+      "notes": "Это заглушка. Здесь должна быть логика отправки, аналогичная crm.proc.dev_request (загрузка шаблона, композиция, отправка, логирование, добавление тега 'followup_1_sent')."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Leads F2",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [-384, 240],
+      "id": "43817369-e025-4c97-985b-df890e962c0c"
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $json;\nlead.lang = ['ru', 'en', 'pl'].includes(lead.preferred_lang) ? lead.preferred_lang : 'ru';\nlead.template_name = `dev_request.followup2.${lead.lang}`;\nlead.fallback_template_name = 'dev_request.followup2.en';\nlead.tag_to_add = 'followup_2_sent'\nreturn [lead];"
+      },
+      "name": "Prep F2 Vars",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-144, 240],
+      "id": "c6e85ca1-b88e-4e73-bc83-b201c3b17b8e"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "mhcfAhLpYPok9tpW",
+          "mode": "list",
+          "cachedResultName": "1.1 Отправка фолоу-апа"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "name": "[SUB] Send Email F2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [96, 240],
+      "id": "0947374a-970a-4f23-ab44-fd656570a45a",
+      "notes": "Это заглушка. Здесь должна быть логика отправки, аналогичная crm.proc.dev_request (загрузка шаблона, композиция, отправка, логирование, добавление тега 'followup_2_sent')."
+    }
+  ],
+  "connections": {
+    "[START] Every Hour": {
+      "main": [
+        [
+          {
+            "node": "1a. Get Leads for Follow-up 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "1b. Get Leads for Follow-up 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1a. Get Leads for Follow-up 1": {
+      "main": [
+        [
+          {
+            "node": "Loop Leads F1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. Get Leads for Follow-up 2": {
+      "main": [
+        [
+          {
+            "node": "Loop Leads F2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Leads F1": {
+      "main": [
+        [
+          {
+            "node": "Prep F1 Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep F1 Vars": {
+      "main": [
+        [
+          {
+            "node": "[SUB] Send Email F1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Leads F2": {
+      "main": [
+        [
+          {
+            "node": "Prep F2 Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep F2 Vars": {
+      "main": [
+        [
+          {
+            "node": "[SUB] Send Email F2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
+  }
+}

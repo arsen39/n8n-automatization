@@ -1,0 +1,350 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const body = $json;\n\nif (!body || !body.payload) {\n  throw new Error('Payload from Calendly trigger is missing or empty.');\n}\n\nconst payload = body.payload;\nconst scheduledEvent = payload.scheduled_event;\n\nconst payloadData = {\n  event_type: body.event,\n  client_email: payload.email,\n  calendly_event_uri: scheduledEvent.uri,\n  invitee_uri: payload.uri,\n  scheduled_start: scheduledEvent.start_time,\n  scheduled_end: scheduledEvent.end_time,\n  timezone: payload.timezone || 'Europe/Warsaw',\n  full_name: payload.name\n};\n\nreturn [payloadData];"
+      },
+      "name": "1. Validate & Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1888, -176],
+      "id": "c66819cf-1b6b-4719-b1fb-fa38438b7209"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.id AS lead_id, c.id AS contact_id, c.full_name\nFROM leads l\nJOIN contacts c ON l.contact_id = c.id\nWHERE c.email = $1 OR c.id IN (SELECT contact_id FROM contact_emails WHERE email = $1)\nORDER BY l.created_at DESC\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $('1. Validate & Parse').item.json.client_email }}"
+        }
+      },
+      "name": "2. Find Lead by Email",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-1648, -176],
+      "id": "0bc0fee1-5346-4f49-926e-99cc95b8c48b",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('1. Validate & Parse').item.json.event_type }}",
+              "value2": "invitee.created"
+            }
+          ]
+        }
+      },
+      "name": "3. IF: Event Type?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1152, -176],
+      "id": "3074c128-7a93-470c-8a85-bc19fa61abc8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bookings (lead_id, calendly_event_id, scheduled_start, scheduled_end, timezone, status, url)\nVALUES ($1, $2, $3, $4, $5, 'scheduled', $6)\nON CONFLICT (calendly_event_id) DO UPDATE SET\n  scheduled_start = EXCLUDED.scheduled_start,\n  scheduled_end = EXCLUDED.scheduled_end,\n  status = 'rescheduled',\n  updated_at = NOW();",
+        "options": {
+          "queryReplacement": "={{ [\n  $('2. Find Lead by Email').item.json.lead_id,\n  $('1. Validate & Parse').item.json.calendly_event_uri,\n  $('1. Validate & Parse').item.json.scheduled_start,\n  $('1. Validate & Parse').item.json.scheduled_end,\n  $('1. Validate & Parse').item.json.timezone,\n  $('1. Validate & Parse').item.json.calendly_event_uri\n] }}"
+        }
+      },
+      "name": "4a. Upsert Booking",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-912, -288],
+      "id": "ca4f1b8f-0777-4d4b-b6f3-7625e7a920df",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads SET stage = 'scheduled_call' WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('2. Find Lead by Email').item.json.lead_id }}"
+        }
+      },
+      "name": "4b. Update Lead to 'scheduled_call'",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-672, -288],
+      "id": "ddf730d6-8705-4f32-8b63-43b41d0eeecb",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "=✅ Новый звонок!\n\nКто: {{ $('1. Validate & Parse').item.json.full_name }}\nКогда: {{ new Date($('1. Validate & Parse').item.json.scheduled_start).toLocaleString('ru-RU', { timeZone: 'Europe/Warsaw', dateStyle: 'long', timeStyle: 'short' }) }} (Warsaw time)",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "4c. Notify Team (Created)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-432, -288],
+      "id": "d33a10e6-6ec1-4f50-96a3-dc0f53648a2c",
+      "webhookId": "17b27c1b-1a4e-4938-8625-957a6f913714",
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE bookings SET status = 'canceled' WHERE calendly_event_id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('1. Validate & Parse').item.json.calendly_event_uri }}"
+        }
+      },
+      "name": "5a. Update Booking to 'canceled'",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-912, -48],
+      "id": "aed30b87-216b-4b87-8734-bed6762d31b8",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads SET stage = 'contacted' WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('2. Find Lead by Email').item.json.lead_id }}"
+        }
+      },
+      "name": "5b. Update Lead to 'contacted'",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-672, -48],
+      "id": "ea997e4e-0294-4729-98bf-68e5a0a51f21",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "=❌ Звонок отменён\n\nКто: {{ $('1. Validate & Parse').item.json.full_name }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "5c. Notify Team (Canceled)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-432, -48],
+      "id": "f595a84d-41f0-4fd5-a75f-f538e106ea7f",
+      "webhookId": "305cf79d-ab57-4a29-8808-810153116ff9",
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "events": ["invitee.created", "invitee.canceled"]
+      },
+      "type": "n8n-nodes-base.calendlyTrigger",
+      "typeVersion": 1,
+      "position": [-2096, -176],
+      "id": "4626f064-dce1-4f64-b246-1d3d60f71ab8",
+      "name": "Calendly Trigger",
+      "webhookId": "a1af6765-0b7d-43cb-ba06-4be809fef4ee",
+      "credentials": {
+        "calendlyOAuth2Api": {
+          "id": "29OGuVVEy2FtkjvC",
+          "name": "Calendly account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('2. Find Lead by Email').item.json.lead_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "3. IF: Lead exist",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1408, -176],
+      "id": "719436d6-82b2-4b35-baee-9df2f0c7a9e5"
+    },
+    {
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "=Calendly trigger. Лид не распознан.\n\nКто: {{ $('1. Validate & Parse').item.json.full_name }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "3c. Notify Team (Unknown lead)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-1152, 96],
+      "id": "a500e2bb-4831-4361-8cfe-dca74a9096be",
+      "webhookId": "305cf79d-ab57-4a29-8808-810153116ff9",
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "1. Validate & Parse": {
+      "main": [
+        [
+          {
+            "node": "2. Find Lead by Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Find Lead by Email": {
+      "main": [
+        [
+          {
+            "node": "3. IF: Lead exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. IF: Event Type?": {
+      "main": [
+        [
+          {
+            "node": "4a. Upsert Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5a. Update Booking to 'canceled'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Upsert Booking": {
+      "main": [
+        [
+          {
+            "node": "4b. Update Lead to 'scheduled_call'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Update Lead to 'scheduled_call'": {
+      "main": [
+        [
+          {
+            "node": "4c. Notify Team (Created)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Update Booking to 'canceled'": {
+      "main": [
+        [
+          {
+            "node": "5b. Update Lead to 'contacted'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5b. Update Lead to 'contacted'": {
+      "main": [
+        [
+          {
+            "node": "5c. Notify Team (Canceled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendly Trigger": {
+      "main": [
+        [
+          {
+            "node": "1. Validate & Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. IF: Lead exist": {
+      "main": [
+        [
+          {
+            "node": "3. IF: Event Type?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "3c. Notify Team (Unknown lead)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
+  }
+}
