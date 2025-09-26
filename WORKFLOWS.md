@@ -128,8 +128,9 @@
 | Шаг | Воркфлоу | Назначение |
 | --- | --- | --- |
 | 1 | `hr.in.candidates` | Принимает заявку кандидата, нормализует профиль и создаёт сущности в БД. |
-| 2 | `hr.proc.vacancy` | Создает/обновляет профиль кандидата, отправляет NDA, ведёт e-mail nurture на 2–3 недели, обновляет стадию. |
-| 3 | `ops.doc.send_nda` | Повторно используется для генерации и логирования NDA (Chaindoc) по входящему lead_id. |
+| 2 | `hr.proc.vacancy` | Создаёт/обновляет профиль кандидата, отправляет NDA, шлёт первичное письмо и ставит фоллоу-апы в очередь. |
+| 3 | `hr.proc.sequencer` | Крон-сборщик: каждые N часов проверяет кандидатов без ответа и рассылает follow-up 1/2 либо завершает пайплайн. |
+| 4 | `ops.doc.send_nda` | Повторно используется для генерации и логирования NDA (Chaindoc) по входящему lead_id. |
 
 Основные таблицы: `candidate_profiles`, `candidate_pool_members`, `messages`, `tasks`, `pipeline_events`, `leads`.
 
@@ -156,16 +157,12 @@
    - `candidate_pool_members` — добавляет/обновляет статус (`prospect`/`active`), создаёт пул если его ещё нет;
    - `tasks` — открытые `review_estimate` (+2 дня) и `add_to_pool` (+7 дней) только если их ещё не было.
 3. **NDA:** вызывает `ops.doc.send_nda` синхронно (`waitForSubWorkflow=true`) и переводит стадию `leads.stage` → `nurturing`.
-4. **Первичный контакт:** humanized `Wait` (4–9 минут), локализованный e-mail (RU/EN) с ссылкой на NDA, лог в `messages` и `pipeline_events`.
-5. **Follow-up каскад:**
-   - `Wait` 5 дней → `Check Engagement` (есть ли входящий ответ/NDA signed); при успехе — `leads.stage='in_pool'`, `candidate_pool_members.status='active'`, `pipeline_events: vacancy_candidate_engaged`.
-   - Если нет ответа — формирует follow-up #1, логирует письмо, снова `Wait` 7 дней и повторяет проверку.
-   - Аналогично follow-up #2 (ещё через 7 дней) с финальной проверкой.
-6. **Архивация:** если после двух напоминаний кандидат не проявил активность, стадия → `archived`, пул помечается `archived`, таски закрываются, событие `vacancy_candidate_archived` (reason=`no_response_after_followup_2`).
+4. **Первичный контакт:** humanized `Wait` (4–9 минут), локализованный e-mail (RU/EN) с ссылкой на NDA, лог в `messages`/`pipeline_events`.
+5. **Постановка в sequencer:** сразу после отправки письма записывает событие `vacancy_followup_scheduled` (с контекстом: `conversation_id`, `candidate_profile_id`, задержки follow-up) и завершает воркфлоу без длительных `Wait`.
 
 **Выходные данные:**
 
-- Для `Execute Workflow` возвращается краткий статус (`engaged`/`archived`), `lead_id`, `candidate_profile_id`, `checkpoint` и количество отправленных follow-up сообщений.
+- Для `Execute Workflow` возвращается статус `scheduled`, `lead_id`, `candidate_profile_id`, а также флаг `followups_scheduled=true`.
 
 **Как использовать HR/оператору:**
 
@@ -173,3 +170,18 @@
 - **Коммуникация:** вся переписка логируется в `messages` (meta.kind=`hr_initial|hr_followup_1|hr_followup_2`).
 - **Задачи:** открытые задачи по лиду (`review_estimate`, `add_to_pool`) сигнализируют, что нужен ручной review или «приземление» в пул.
 - **Архив/успех:** события в `pipeline_events` (`vacancy_candidate_engaged` / `vacancy_candidate_archived`) и финальная стадия лида отражают итог nurture-цикла.
+
+---
+
+## `hr.proc.sequencer`
+
+**Триггер:** `Schedule Trigger` (ежечасно, может быть скорректирован под нагрузку).
+
+**Что делает:**
+
+1. **После первичного письма:** ищет лидов с событием `vacancy_followup_scheduled`, у которых прошло ≥5 дней, нет outbound `hr_followup_1`, нет ответа/NDA → либо помечает кандидата как `in_pool`, либо шлёт follow-up #1.
+2. **После follow-up #1:** контролирует окна ≥7 дней, отсутствие `hr_followup_2` и свежих ответов → отправляет follow-up #2 или переводит в `in_pool`.
+3. **После follow-up #2:** ещё через 7 дней проверяет активность; при успехе — `vacancy_candidate_engaged`, иначе — `vacancy_candidate_archived` с закрытием задач и архивом пула.
+4. **Логи и идемпотентность:** каждое действие фиксируется в `messages` (`meta.kind=hr_followup_1|2`) и `pipeline_events` (`vacancy_followup_1_sent`, `vacancy_followup_2_sent`, `vacancy_candidate_*`).
+
+**Зачем выносить в отдельный sequencer:** крон не держит активных исполнений n8n на протяжении недель, переживает рестарты инстанса и одинаково обрабатывает повторные попытки (идемпотентные SQL).
