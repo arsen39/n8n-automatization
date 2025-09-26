@@ -3,25 +3,33 @@
     {
       "parameters": {
         "rule": {
-          "interval": [{}]
+          "interval": [
+            {}
+          ]
         }
       },
       "name": "[START] Every Hour",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [-864, 48],
+      "position": [
+        -864,
+        48
+      ],
       "id": "66d2801d-c481-42bb-942b-37b52dc0cbe1"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT l.id AS lead_id, c.full_name, c.preferred_lang, c.email AS primary_email, conv.id as conversation_id\nFROM leads l\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nLEFT JOIN lead_tags lt ON l.id = lt.lead_id AND lt.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nWHERE l.stage = 'contacted'\n  AND l.updated_at BETWEEN NOW() - interval '25 hours' AND NOW() - interval '24 hours'\n  AND lt.lead_id IS NULL;",
+        "query": "WITH scheduled AS (\n  SELECT pe.entity_id AS lead_id, MAX(pe.created_at) AS scheduled_at\n  FROM pipeline_events pe\n  WHERE pe.event_type = 'dev_request_followup_scheduled'\n  GROUP BY pe.entity_id\n)\nSELECT\n  l.id AS lead_id,\n  c.full_name,\n  c.preferred_lang,\n  c.email AS primary_email,\n  conv.id AS conversation_id,\n  sched.scheduled_at\nFROM scheduled sched\nJOIN leads l ON l.id = sched.lead_id\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nLEFT JOIN lead_tags lt1 ON l.id = lt1.lead_id AND lt1.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nLEFT JOIN lead_tags ltdone ON l.id = ltdone.lead_id AND ltdone.tag_id = (SELECT id FROM tags WHERE name = 'followup_sequence_done')\nWHERE l.stage = 'contacted'\n  AND sched.scheduled_at <= NOW() - interval '24 hours'\n  AND sched.scheduled_at >= NOW() - interval '7 days'\n  AND lt1.lead_id IS NULL\n  AND ltdone.lead_id IS NULL\n  AND NOT EXISTS (\n    SELECT 1 FROM bookings b\n    WHERE b.lead_id = l.id\n      AND b.status IN ('scheduled','rescheduled','attended')\n      AND b.scheduled_start >= NOW() - interval '30 days'\n  )\n  AND NOT EXISTS (\n    SELECT 1 FROM messages m\n    WHERE m.conversation_id = conv.id\n      AND m.direction = 'inbound'\n      AND m.message_ts >= sched.scheduled_at\n  );",
         "options": {}
       },
       "name": "1a. Get Leads for Follow-up 1",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-624, -160],
+      "position": [
+        -624,
+        -160
+      ],
       "id": "e9162a06-01c0-46cb-abea-77a1f46c83c7",
       "credentials": {
         "postgres": {
@@ -33,13 +41,16 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT l.id AS lead_id, c.full_name, c.preferred_lang, c.email AS primary_email, conv.id as conversation_id\nFROM leads l\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nJOIN lead_tags lt1 ON l.id = lt1.lead_id AND lt1.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nLEFT JOIN lead_tags lt2 ON l.id = lt2.lead_id AND lt2.tag_id = (SELECT id FROM tags WHERE name = 'followup_2_sent')\nWHERE l.stage = 'contacted'\n  AND l.updated_at BETWEEN NOW() - interval '73 hours' AND NOW() - interval '72 hours'\n  AND lt2.lead_id IS NULL;",
+        "query": "WITH scheduled AS (\n  SELECT pe.entity_id AS lead_id, MAX(pe.created_at) AS scheduled_at\n  FROM pipeline_events pe\n  WHERE pe.event_type = 'dev_request_followup_scheduled'\n  GROUP BY pe.entity_id\n),\nfollowup1 AS (\n  SELECT\n    m.conversation_id,\n    MAX(m.message_ts) AS sent_at\n  FROM messages m\n  WHERE m.direction = 'outbound'\n    AND m.meta->>'tag' = 'followup_1_sent'\n  GROUP BY m.conversation_id\n)\nSELECT\n  l.id AS lead_id,\n  c.full_name,\n  c.preferred_lang,\n  c.email AS primary_email,\n  conv.id AS conversation_id,\n  f1.sent_at\nFROM scheduled sched\nJOIN leads l ON l.id = sched.lead_id\nJOIN contacts c ON l.contact_id = c.id\nJOIN conversations conv ON l.id = conv.lead_id\nJOIN followup1 f1 ON f1.conversation_id = conv.id\nJOIN lead_tags lt1 ON l.id = lt1.lead_id AND lt1.tag_id = (SELECT id FROM tags WHERE name = 'followup_1_sent')\nLEFT JOIN lead_tags lt2 ON l.id = lt2.lead_id AND lt2.tag_id = (SELECT id FROM tags WHERE name = 'followup_2_sent')\nLEFT JOIN lead_tags ltdone ON l.id = ltdone.lead_id AND ltdone.tag_id = (SELECT id FROM tags WHERE name = 'followup_sequence_done')\nWHERE l.stage = 'contacted'\n  AND f1.sent_at <= NOW() - interval '48 hours'\n  AND f1.sent_at >= NOW() - interval '7 days'\n  AND lt2.lead_id IS NULL\n  AND ltdone.lead_id IS NULL\n  AND NOT EXISTS (\n    SELECT 1 FROM bookings b\n    WHERE b.lead_id = l.id\n      AND b.status IN ('scheduled','rescheduled','attended')\n      AND b.scheduled_start >= NOW() - interval '30 days'\n  )\n  AND NOT EXISTS (\n    SELECT 1 FROM messages m\n    WHERE m.conversation_id = conv.id\n      AND m.direction = 'inbound'\n      AND m.message_ts >= f1.sent_at\n  );",
         "options": {}
       },
       "name": "1b. Get Leads for Follow-up 2",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-624, 240],
+      "position": [
+        -624,
+        240
+      ],
       "id": "8ba62f4a-f0b2-4887-90da-70fddfd40c7f",
       "credentials": {
         "postgres": {
@@ -55,7 +66,10 @@
       "name": "Loop Leads F1",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 2,
-      "position": [-384, -160],
+      "position": [
+        -384,
+        -160
+      ],
       "id": "3b21c5b7-9546-4dfe-9a5e-3eb3f2185f97"
     },
     {
@@ -65,7 +79,10 @@
       "name": "Prep F1 Vars",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-144, -160],
+      "position": [
+        -144,
+        -160
+      ],
       "id": "559146c8-b283-4bcb-a447-0c4193166157"
     },
     {
@@ -89,7 +106,10 @@
       "name": "[SUB] Send Email F1",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [96, -160],
+      "position": [
+        96,
+        -160
+      ],
       "id": "0ada3b52-6090-408f-a9f7-93ce48596ef2",
       "notes": "Это заглушка. Здесь должна быть логика отправки, аналогичная crm.proc.dev_request (загрузка шаблона, композиция, отправка, логирование, добавление тега 'followup_1_sent')."
     },
@@ -100,7 +120,10 @@
       "name": "Loop Leads F2",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 2,
-      "position": [-384, 240],
+      "position": [
+        -384,
+        240
+      ],
       "id": "43817369-e025-4c97-985b-df890e962c0c"
     },
     {
@@ -110,7 +133,10 @@
       "name": "Prep F2 Vars",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-144, 240],
+      "position": [
+        -144,
+        240
+      ],
       "id": "c6e85ca1-b88e-4e73-bc83-b201c3b17b8e"
     },
     {
@@ -134,9 +160,58 @@
       "name": "[SUB] Send Email F2",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [96, 240],
+      "position": [
+        96,
+        240
+      ],
       "id": "0947374a-970a-4f23-ab44-fd656570a45a",
       "notes": "Это заглушка. Здесь должна быть логика отправки, аналогичная crm.proc.dev_request (загрузка шаблона, композиция, отправка, логирование, добавление тега 'followup_2_sent')."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO lead_tags (lead_id, tag_id)\nVALUES (\n  $1,\n  (SELECT id FROM tags WHERE name = 'followup_sequence_done')\n)\nON CONFLICT DO NOTHING;",
+        "options": {
+          "queryReplacement": "={{ [ $('Prep F2 Vars').item.json.lead_id ] }}"
+        }
+      },
+      "name": "Tag Sequence Done",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        400,
+        160
+      ],
+      "id": "1869c478-b74d-429f-952a-c909bd88362a",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup_completed', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('Prep F2 Vars').item.json.lead_id, JSON.stringify({ sequence: 'dev_request_default', source: 'mkt.proc.sequencer' }) ] }}"
+        }
+      },
+      "name": "Log Sequence Completed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        640,
+        160
+      ],
+      "id": "506d2cbd-f0ec-4fde-acbe-8d4df333b077",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -220,6 +295,33 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "[SUB] Send Email F2": {
+      "main": [
+        [
+          {
+            "node": "Tag Sequence Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Sequence Done": {
+      "main": [
+        [
+          {
+            "node": "Log Sequence Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Sequence Completed": {
+      "main": [
+        []
       ]
     }
   },

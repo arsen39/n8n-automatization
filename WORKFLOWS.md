@@ -7,9 +7,10 @@
 | Шаг | Воркфлоу | Назначение |
 | --- | --- | --- |
 | 1 | `crm.in.forms` | Принимает вебхуки/почту, нормализует заявку и создаёт базовые сущности в БД. |
-| 2 | `crm.proc.dev_request` | Автоматизирует коммуникацию с клиентом: первичный ответ, humanizer, follow-up цепочка. |
-| 3 | `ops.in.calendly` | Регистрирует бронь звонка и переключает состояние лида. |
-| 4 | `ops.doc.send_nda` | Отправляет NDA через Chaindoc и фиксирует событие в БД. |
+| 2 | `crm.proc.dev_request` | Отправляет первичный ответ и подготавливает данные для асинхронных follow-up через крон. |
+| 3 | `mkt.proc.sequencer` | Крон-процесс, который подхватывает лидов без ответа и рассылает follow-up письма. |
+| 4 | `ops.in.calendly` | Регистрирует бронь звонка и переключает состояние лида. |
+| 5 | `ops.doc.send_nda` | Отправляет NDA через Chaindoc и фиксирует событие в БД. |
 
 Ключевые таблицы PostgreSQL: `submissions`, `classifications`, `contacts`, `leads`, `conversations`, `messages`, `bookings`, `documents`, `tasks`.
 
@@ -28,7 +29,7 @@
 4. Апсерты `companies`/`contacts` (учёт дополнительных email через `contact_emails`).
 5. Создание `leads` (тип/owner определяется по intent), старт `conversations`, запись первого `messages` и вложений.
 6. Telegram-нотификация в канал `#sales_ops` с кратким summary (`sales_summary` из AI).
-7. Маршрутизация по типу формы: для `dev_request` формируем payload и вызываем `crm.proc.dev_request` как саб-флоу (через `Execute Workflow`).
+7. Маршрутизация по типу формы: для `dev_request` формируем payload и вызываем `crm.proc.dev_request` как саб-флоу (через `Execute Workflow`). Кандидатские формы обслуживает отдельный `hr.in.candidates`.
 
 **Выходные данные:** объект с `lead_id`, `contact_id`, `conversation_id`, email/имя/таймзона — используется дальше.
 
@@ -46,13 +47,25 @@
    - `tasks` (создаём задачу "проверить букинг" с дедлайном +24h),
    - `leads.stage = contacted`,
    - `conversations.last_message_at`.
-5. **Follow-up логика (новое):**
-   - Через 24 часа (`Wait`) выполняем `5b. Check Engagement`: SQL проверяет наличие свежей записи в `bookings` или входящего ответа (`messages` direction=`inbound`).
-   - Если активности нет, формируем Follow-up #1 (локализованные шаблоны в `Code` ноде), делаем humanized задержку 3–8 минут, отправляем Gmail, логируем письмо как `kind=followup_1` в `messages`.
-   - Через 48 часов после Follow-up #1 повторяем проверку. При отсутствии активности отправляем Follow-up #2 (отдельный текст, локализация, логирование `kind=followup_2`).
-   - Если на любом чекпоинте найден букинг или ответ, цепочка останавливается (ветка `true` в IF).
+5. **Синхронизация с кроном:** после успешной отправки письма сбрасываем теги `followup_*`, пишем событие `dev_request_followup_scheduled` и завершаем выполнение. Follow-up цепочку подхватывает `mkt.proc.sequencer`.
 
-**Итого:** клиент гарантированно получает первое письмо ≤15 мин и два мягких напоминания, пока не назначит звонок/не ответит.
+**Итого:** воркфлоу обрабатывает только первичный ответ, не зависая в `Wait`-нодах и не теряя лидов при рестартах n8n.
+
+---
+
+## `mkt.proc.sequencer`
+
+**Триггер:** `Schedule Trigger` (ежечасно).
+
+**Что делает:**
+1. Ищет лидов с событием `dev_request_followup_scheduled`, у которых нет букинга и входящих ответов после первичного письма.
+2. Формирует списки для Follow-up #1 и Follow-up #2:
+   - первый ориентируется на возраст события (≥24h) и отсутствие тега `followup_1_sent`;
+   - второй — на фактическое время письма с тегом `followup_1_sent` (≥48h) и отсутствие `followup_2_sent`.
+3. Для каждого лида вызывает саб-флоу `sub.mkt.send_sequence_step`, который подбирает шаблон и отправляет письмо через Gmail.
+4. После Follow-up #2 добавляет тег `followup_sequence_done` и пишет событие `dev_request_followup_completed`.
+
+**Почему так:** логика follow-up переехала из `crm.proc.dev_request`, чтобы не держать активные исполнения n8n и не терять таймеры при падении сервера.
 
 ---
 
@@ -114,7 +127,7 @@
 
 | Шаг | Воркфлоу | Назначение |
 | --- | --- | --- |
-| 1 | `crm.in.forms` | Принимает заявку кандидата, нормализует профиль, определяет intent=`candidate`, передает данные в HR-процесс. |
+| 1 | `hr.in.candidates` | Принимает заявку кандидата, нормализует профиль и создаёт сущности в БД. |
 | 2 | `hr.proc.vacancy` | Создает/обновляет профиль кандидата, отправляет NDA, ведёт e-mail nurture на 2–3 недели, обновляет стадию. |
 | 3 | `ops.doc.send_nda` | Повторно используется для генерации и логирования NDA (Chaindoc) по входящему lead_id. |
 
@@ -122,17 +135,18 @@
 
 ---
 
-## Изменения в `crm.in.forms`
+## `hr.in.candidates`
 
-- AI-парсер теперь возвращает структурированный блок `candidate_profile` (skills/ставки/наличие CV) и подсказки по пулам.
-- Для `intent=candidate` или `form_code='vacancy'` тип лида сохраняется как `candidate`, а не принудительно `client`.
-- Добавлен саб-процесс: ветка `8a-b. Is Candidate Intent?` вызывает `hr.proc.vacancy` и логирует результат (`vacancy_processor_triggered/failed`).
+- Отдельный intake для HR: собственный webhook и Gmail-триггер с `source_code = email_inbox_hr`.
+- Политика приёма допускает только `intent=candidate` и формы `vacancy|hr_intake|hr_candidate`, остальное маркируется тегом `policy_violation_non_candidate`.
+- Создаёт `contacts`/`leads`, сохраняет расширенный `candidate_profile`, пушит уведомление в Telegram и вызывает `hr.proc.vacancy`.
+- Ошибки саб-процесса логируются в `pipeline_events` и дублируются в Telegram.
 
 ---
 
 ## `hr.proc.vacancy`
 
-**Триггер:** `Execute Workflow` из `crm.in.forms` с намерением `candidate`.
+**Триггер:** `Execute Workflow` из `hr.in.candidates` с намерением `candidate`.
 
 **Что делает:**
 
