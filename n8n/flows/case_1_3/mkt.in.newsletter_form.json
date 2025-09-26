@@ -1,0 +1,144 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "={{ $env.NEWSLETTER_FORM_METHOD || 'POST' }}",
+        "path": "newsletter/form",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "name": "[START] Newsletter Form Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -940,
+        0
+      ],
+      "id": "8bbed5e4-191c-494b-bbf9-a49d7a3c23a5",
+      "notes": "Dedicated webhook for newsletter sign-up forms."
+    },
+    {
+      "parameters": {
+        "functionCode": "const request = items[0]?.json ?? {};\nconst body = request.body && typeof request.body === 'object' ? request.body : {};\nconst query = request.query && typeof request.query === 'object' ? request.query : {};\nconst headers = request.headers && typeof request.headers === 'object' ? request.headers : {};\n\nconst pick = (...values) => {\n  for (const value of values) {\n    if (value === undefined || value === null) continue;\n    if (typeof value === 'string') {\n      const trimmed = value.trim();\n      if (trimmed) return trimmed;\n    } else if (typeof value === 'number' || typeof value === 'boolean') {\n      return value;\n    }\n  }\n  return undefined;\n};\n\nconst normalizeBoolean = (value) => {\n  if (value === undefined || value === null) return null;\n  if (typeof value === 'boolean') return value;\n  const normalized = String(value).trim().toLowerCase();\n  if (['true','1','yes','y','on'].includes(normalized)) return true;\n  if (['false','0','no','n','off'].includes(normalized)) return false;\n  return null;\n};\n\nconst emailRaw = pick(body.email, body.Email, body.EMAIL, query.email, headers['x-email']);\nconst email = typeof emailRaw === 'string' ? emailRaw.trim().toLowerCase() : '';\nconst fullNameRaw = pick(body.full_name, body.fullName, body.name, query.full_name, query.name);\nconst preferredLangRaw = pick(body.preferred_lang, body.preferredLang, body.language, query.preferred_lang, query.lang, headers['x-preferred-lang']);\nconst timezoneRaw = pick(body.timezone, body.time_zone, query.timezone, query.time_zone, headers['x-timezone']);\nconst sourceCodeRaw = pick(body.source_code, body.source, query.source_code, query.source, headers['x-source-code']);\nconst consentVersionRaw = pick(body.consent_version, query.consent_version, headers['x-consent-version']);\nconst doubleOptInRaw = pick(body.double_opt_in, body.doubleOptIn, query.double_opt_in, query.doubleOptIn, headers['x-double-opt-in']);\nconst acceptsMarketingRaw = pick(body.accepts_marketing, body.acceptsMarketing, query.accepts_marketing, query.acceptsMarketing, headers['x-accepts-marketing']);\nconst acceptsTermsRaw = pick(body.accepts_terms, body.acceptsTerms, query.accepts_terms, query.acceptsTerms, headers['x-accepts-terms']);\nconst tagsRaw = pick(body.tags, query.tags);\n\nconst tags = Array.isArray(tagsRaw)\n  ? tagsRaw.map(v => String(v)).filter(Boolean)\n  : typeof tagsRaw === 'string'\n    ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean)\n    : [];\n\nconst payload = {\n  email,\n  full_name: fullNameRaw ? String(fullNameRaw).trim() : null,\n  preferred_lang: preferredLangRaw ? String(preferredLangRaw).trim().toLowerCase() : null,\n  timezone: timezoneRaw ? String(timezoneRaw).trim() : null,\n  source_code: sourceCodeRaw ? String(sourceCodeRaw).trim().toLowerCase() : 'main_site',\n  consent_version: consentVersionRaw ? String(consentVersionRaw).trim() : 'v1',\n  double_opt_in: doubleOptInRaw === undefined || doubleOptInRaw === null ? true : normalizeBoolean(doubleOptInRaw) ?? true,\n  accepts_marketing: normalizeBoolean(acceptsMarketingRaw),\n  accepts_terms: normalizeBoolean(acceptsTermsRaw),\n  tags,\n  raw_request: { body, query, headers }\n};\n\nreturn [{ json: payload }];"
+      },
+      "name": "1. Normalize Request",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        0
+      ],
+      "id": "884ac1f5-ac7d-4741-b93e-abfa8b5a9ffa"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "mktProcNewsletter",
+          "mode": "list",
+          "cachedResultName": "1.3 Обработка подписки на рассылку"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "name": "2. Trigger Newsletter Processor",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -380,
+        0
+      ],
+      "id": "53ca2f52-2da1-4459-9fb7-7b88a5397b1e",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const result = items[0]?.json ?? {};\n\nif (result.error) {\n  const message = result.error.message || result.error || 'newsletter processor failed';\n  return [{\n    json: {\n      statusCode: 500,\n      body: {\n        status: 'error',\n        message,\n        details: result.error\n      }\n    }\n  }];\n}\n\nconst status = result.status ?? result.subscriber_status ?? 'accepted';\nif (status === 'rejected') {\n  return [{\n    json: {\n      statusCode: 422,\n      body: {\n        status: 'rejected',\n        reason: result.reason || 'validation_failed',\n        errors: Array.isArray(result.errors) ? result.errors : [],\n        payload: result.payload || null\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    statusCode: 200,\n    body: {\n      status,\n      subscriber_id: result.subscriber_id ?? null,\n      contact_id: result.contact_id ?? null,\n      double_opt_in: result.double_opt_in ?? null,\n      should_send_doi: result.should_send_doi ?? null,\n      should_send_welcome: result.should_send_welcome ?? null\n    }\n  }\n}];"
+      },
+      "name": "3. Build Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        0
+      ],
+      "id": "7359b100-fc9d-4af5-be06-2e07a47ddb5d"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "responseCode": "={{ $json.statusCode || 200 }}"
+      },
+      "name": "4. Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        140,
+        0
+      ],
+      "id": "96a29144-5f87-4950-8691-9f7d20e1686d"
+    }
+  ],
+  "connections": {
+    "[START] Newsletter Form Intake": {
+      "main": [
+        [
+          {
+            "node": "1. Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "2. Trigger Newsletter Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Trigger Newsletter Processor": {
+      "main": [
+        [
+          {
+            "node": "3. Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Build Response": {
+      "main": [
+        [
+          {
+            "node": "4. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "d2c7a6b2d8f449d2982e7b4e6e3df1d5ff7f0d267e6c4688a0f3e7c4f2a4a1d3"
+  }
+}
