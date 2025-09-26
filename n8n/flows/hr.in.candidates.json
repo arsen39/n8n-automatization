@@ -9,12 +9,9 @@
       "name": "hr.in.candidates",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        -8400,
-        0
-      ],
+      "position": [-8976, -448],
       "webhookId": "837acadc8f9e4159b8db8c91b1c3097b",
-      "id": "cbbfe74c-ea8e-44db-bf19-c3d3c9a01f64",
+      "id": "57cb98a7-ace8-4a0d-82af-b4166334033f",
       "notes": "Trigger: Webhook (по HR-формам vacancy/hr_intake/hr_candidate)\n\nОжидает в заголовках:\nX-Resource (e.g., 'chain.do')\nX-Form-Code (e.g., 'vacancy')\n\nТело запроса (body) должно содержать email, full_name, message и дополнительные поля анкеты."
     },
     {
@@ -31,16 +28,14 @@
               "rightValue": "spam"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "4. Is Spam?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -6464,
-        176
-      ],
-      "id": "a26a37aa-1d39-4246-919b-46b7bf3e0460"
+      "position": [-7040, -272],
+      "id": "c11f7f5d-2ac2-4c8a-b928-3a784acc915c"
     },
     {
       "parameters": {
@@ -52,11 +47,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -6672,
-        176
-      ],
-      "id": "05e31c54-360a-4ce4-a47f-ec0bc3d09863",
+      "position": [-7248, -272],
+      "id": "010f3b77-4715-4cc9-bb4e-6f34f21028d0",
       "name": "3b. Insert Classification",
       "credentials": {
         "postgres": {
@@ -75,11 +67,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -6896,
-        176
-      ],
-      "id": "ea95bc1d-b66d-4410-a881-536cd698f48b",
+      "position": [-7472, -272],
+      "id": "9c363206-b6a7-4710-9d0c-903c388710f0",
       "name": "2. Insert Submission",
       "credentials": {
         "postgres": {
@@ -96,11 +85,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -6192,
-        -64
-      ],
-      "id": "a227777c-b436-4b70-9602-dbb2a7cdcbd8",
+      "position": [-6768, -512],
+      "id": "3b106430-3393-4f3f-a079-377288802bf0",
       "name": "Update Submission (Spam)",
       "credentials": {
         "postgres": {
@@ -122,11 +108,8 @@
       },
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.3,
-      "position": [
-        -8400,
-        320
-      ],
-      "id": "47bc4334-6e8c-4963-b04f-e4ea2ce07e0e",
+      "position": [-8976, -112],
+      "id": "93af639e-c17c-489a-8f44-000d1cb404ba",
       "name": "Gmail Trigger (HR)",
       "credentials": {
         "gmailOAuth2": {
@@ -141,11 +124,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -8112,
-        176
-      ],
-      "id": "806bebf0-7a0f-41f4-9bde-ea307ad0da12",
+      "position": [-8688, -272],
+      "id": "f5085ddc-687a-4739-8f20-ef80e92deca4",
       "name": "0a. Build Envelope"
     },
     {
@@ -167,11 +147,8 @@
       },
       "type": "@n8n/n8n-nodes-langchain.anthropic",
       "typeVersion": 1,
-      "position": [
-        -7904,
-        176
-      ],
-      "id": "c323b003-5844-4d6f-8802-ab0ed498b20e",
+      "position": [-8480, -272],
+      "id": "b66a9944-ed8e-449a-b676-f76074ade384",
       "name": "0b. AI Extract & Classify",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -188,11 +165,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -7568,
-        176
-      ],
-      "id": "3b2be69c-6baa-4ffc-963b-beb2d8763ca6",
+      "position": [-8144, -272],
+      "id": "ae5e212b-91eb-4ef1-bf16-b64d154540f8",
       "name": "1c. Parse AI JSON"
     },
     {
@@ -201,11 +175,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -7344,
-        176
-      ],
-      "id": "89d43a79-6f65-44e8-89ce-bdb2f1d7f458",
+      "position": [-7920, -272],
+      "id": "77ed1bc6-99d9-405b-869a-1ed8991b2594",
       "name": "1d. Enforce Intake Policy"
     },
     {
@@ -214,11 +185,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -7120,
-        176
-      ],
-      "id": "dc66744e-44cc-4f8d-9c26-0958b0e9c42f",
+      "position": [-7696, -272],
+      "id": "ce552e5f-8e9a-4494-9200-31233ad16bd6",
       "name": "1e. Validate & Shape"
     },
     {
@@ -235,16 +203,14 @@
               "rightValue": null
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "IF: Company Name Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -6192,
-        240
-      ],
-      "id": "fe8aa7df-e9bf-4db1-a113-1455fc60ce84"
+      "position": [-6768, -208],
+      "id": "0b5dc3cd-e518-4ab3-ad12-66ee7d1c4c6f"
     },
     {
       "parameters": {
@@ -256,11 +222,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -5536,
-        -32
-      ],
-      "id": "6cbc0f48-d070-443d-b83f-a2350e64f2f2",
+      "position": [-6112, -480],
+      "id": "926de1b4-c0a2-4391-a770-1803f4e9e4b6",
       "name": "5a. Upsert Company by Website",
       "credentials": {
         "postgres": {
@@ -283,16 +246,14 @@
               "rightValue": null
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "IF: Website Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -5872,
-        96
-      ],
-      "id": "8406da3f-ed3d-4a2d-b3ae-9bc11ee9f0be"
+      "position": [-6448, -352],
+      "id": "058d15dd-555e-4e7d-a600-ccfb75067a4b"
     },
     {
       "parameters": {
@@ -304,11 +265,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -5536,
-        208
-      ],
-      "id": "96898aaf-c442-474f-bd35-365e3a2270eb",
+      "position": [-6112, -240],
+      "id": "505fb136-bb27-405d-99ad-6371315b56a9",
       "name": "5a. Upsert Company by Name",
       "credentials": {
         "postgres": {
@@ -328,11 +286,8 @@
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [
-        -5232,
-        320
-      ],
-      "id": "17a7bf1b-7f69-4f84-9ccb-86a45c9c4571",
+      "position": [-5808, -112],
+      "id": "4512dcb1-3f4c-4b56-8f83-fce420e30eff",
       "name": "Merge company data"
     },
     {
@@ -346,11 +301,8 @@
       "name": "1. Find Contact by Email",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -4992,
-        336
-      ],
-      "id": "c5168745-59b2-419a-b220-195ed9f964bd",
+      "position": [-5568, -96],
+      "id": "27dd9875-f552-4a9a-8220-44998667c037",
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
@@ -373,16 +325,14 @@
               "rightValue": null
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "2. IF: Contact Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -4752,
-        336
-      ],
-      "id": "7b0df899-be89-40ad-8a97-2a20e6ebaab4"
+      "position": [-5328, -96],
+      "id": "75071af9-ac46-42ca-a8e3-843ebe599565"
     },
     {
       "parameters": {
@@ -395,11 +345,8 @@
       "name": "3. Update Contact",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -4464,
-        192
-      ],
-      "id": "ca852176-75c6-4205-afc8-6e8edc6a6f0c",
+      "position": [-5040, -256],
+      "id": "bd6265f9-7f30-4ada-ac90-d73f5cebcde4",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -418,11 +365,8 @@
       "name": "4a. Create Contact Record",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -4464,
-        400
-      ],
-      "id": "5830abaf-a52f-455a-b129-4a3e7d46d7a7",
+      "position": [-5040, -32],
+      "id": "617d0d3f-1cdf-47bb-a00c-d06502c27a67",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -441,11 +385,8 @@
       "name": "4b. Add Contact Email",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -4192,
-        496
-      ],
-      "id": "4f56aa81-2225-4f69-b0d1-518491f830bb",
+      "position": [-4768, 64],
+      "id": "6ccb6c6d-876d-4173-a2f4-d807d8990e2b",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -464,11 +405,8 @@
       "name": "5. Merge Contact Result",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [
-        -3968,
-        304
-      ],
-      "id": "13beca1c-c9cc-4b87-9a2c-235e0085486f"
+      "position": [-4544, -128],
+      "id": "068631c0-c94e-4108-9947-bd556d069733"
     },
     {
       "parameters": {
@@ -481,11 +419,8 @@
       "name": "6. Upsert Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -3792,
-        304
-      ],
-      "id": "ec65eb47-69c5-4b84-9e6d-fa3e898f92be",
+      "position": [-4368, -128],
+      "id": "69c3dcbc-f487-451c-8e60-ef58aac0cb5d",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -504,11 +439,8 @@
       "name": "7a. Start Conversation",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -3584,
-        304
-      ],
-      "id": "57269ee4-bad6-4b32-936c-7bece4ccec4a",
+      "position": [-4160, -128],
+      "id": "0e7f8db8-ca60-4073-8591-456c05d7ce79",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -527,11 +459,8 @@
       "name": "7b. Insert First Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -3376,
-        304
-      ],
-      "id": "2d82a1c3-2829-4f36-bbc5-fe6d3c3feb2e",
+      "position": [-3952, -128],
+      "id": "2611d1c6-6ad6-4366-a246-2e26e0b6ecbd",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -550,11 +479,8 @@
       "name": "7d. Insert Attachment",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -2784,
-        304
-      ],
-      "id": "93b6e375-fc40-4615-999e-a7fb1f5b4d2b",
+      "position": [-3360, -128],
+      "id": "7a992779-98bd-450c-b764-4187daf36b16",
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
@@ -581,11 +507,8 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        -3184,
-        304
-      ],
-      "id": "27bdc9ce-c251-4ea3-8f67-223f7bf4a7eb",
+      "position": [-3760, -128],
+      "id": "f1e30514-c5af-4597-aef0-900698f15b92",
       "name": "Edit Fields"
     },
     {
@@ -597,11 +520,8 @@
       "name": "7c. Split Out Attachments",
       "type": "n8n-nodes-base.itemLists",
       "typeVersion": 1,
-      "position": [
-        -2992,
-        304
-      ],
-      "id": "f604d087-cecc-4c36-8efe-c31661ca486f",
+      "position": [-3568, -128],
+      "id": "07a8d605-b690-476f-b8d1-9b31c8be6fcc",
       "alwaysOutputData": true
     },
     {
@@ -614,11 +534,8 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        -2304,
-        304
-      ],
-      "id": "71334d55-4983-47ba-a3b2-ae467f302c97",
+      "position": [-2880, -128],
+      "id": "9b6e8af7-7975-4ccd-bf40-7e5f2a3a1995",
       "name": "Send a text message (HR)",
       "webhookId": "4aed2b64-9a3d-4b01-8a28-6bb4e82b21df",
       "credentials": {
@@ -633,14 +550,11 @@
       "parameters": {
         "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst summary = intake.sales_summary || (intake.message ? `${intake.message.slice(0, 200)}${intake.message.length > 200 ? '…' : ''}` : 'Нет короткого резюме — проверьте диалог.');\n\nconst flags = new Set(intake.intake_flags || []);\nconst aiErrors = Array.isArray(intake.ai_errors) ? intake.ai_errors.filter(Boolean) : [];\nif (aiErrors.length) {\n  flags.add('ai_warning');\n}\n\nconst lines = [];\nlines.push('👤 Новый кандидат откликнулся на вакансию');\nlines.push(`Lead ID: ${lead.lead_id}`);\nlines.push(`Candidate: ${(contact.full_name || intake.full_name || '—')} <${intake.email}>`);\nlines.push(`Intent: ${intake.lead_intent} | Classification: ${(intake.classification?.label || 'n/a')}`);\nlines.push('—');\nlines.push(summary);\n\nif (flags.size) {\n  lines.push('—');\n  lines.push(`⚠️ Flags: ${Array.from(flags).join(', ')}`);\n}\nif (aiErrors.length) {\n  const preview = aiErrors.map(e => e?.code || 'error').join(', ');\n  lines.push(`⚠️ AI warnings: ${preview}`);\n}\n\nreturn [{ text: lines.join('\\n') }];"
       },
-      "id": "ace7f031-9fd4-48be-8da8-b6a8b17fa489",
+      "id": "3b166ebf-979d-4cd1-b146-40135eb3859a",
       "name": "7e. Build Telegram Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -2544,
-        304
-      ]
+      "position": [-3120, -128]
     },
     {
       "parameters": {
@@ -650,14 +564,11 @@
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ lead_intent: $('1e. Validate & Shape').item.json.lead_intent, classification_label: $('1e. Validate & Shape').item.json.classification.label, intake_flags: $('1e. Validate & Shape').item.json.intake_flags, ai_errors: $('1e. Validate & Shape').item.json.ai_errors, source_code: $('0a. Build Envelope').item.json.source_code, form_code: $('0a. Build Envelope').item.json.form_code }) ] }}"
         }
       },
-      "id": "c55c5ea3-2a05-47e3-b804-178cfbdbb1b3",
+      "id": "700849f5-4467-48cc-88e6-e684c699d159",
       "name": "8f. Log Non-candidate Intake",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -1792,
-        528
-      ],
+      "position": [-2384, 144],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -687,16 +598,14 @@
               "rightValue": "vacancy"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "8a. Is Candidate Intent?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -2064,
-        528
-      ],
-      "id": "9c2f6ed5-0be3-47cc-887c-ecb08dcec2d6"
+      "position": [-2656, -128],
+      "id": "f3f7f113-6835-4273-aeea-0020902daa83"
     },
     {
       "parameters": {
@@ -705,11 +614,8 @@
       "name": "[PREP] Build Candidate Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1792,
-        528
-      ],
-      "id": "106a6283-703e-414c-8293-d4a13e2c3e4e"
+      "position": [-2384, -128],
+      "id": "f5181cf5-12c4-4e82-8413-9cea53e82812"
     },
     {
       "parameters": {
@@ -734,11 +640,8 @@
       "name": "[HOP] Trigger Vacancy Processor",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        -1568,
-        528
-      ],
-      "id": "06b3aa78-79b7-48a6-8808-7601e3abe617",
+      "position": [-2160, -128],
+      "id": "ed7bd2b7-b76b-4822-b8e2-8663aaaa4182",
       "continueOnFail": true
     },
     {
@@ -755,16 +658,14 @@
               "rightValue": null
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "8b. Vacancy Processor Succeeded?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -1312,
-        528
-      ],
-      "id": "1c810048-bb81-4364-96b9-e83ea72f2522"
+      "position": [-1904, -128],
+      "id": "f80a73ab-87d0-4906-9356-4871f86ab690"
     },
     {
       "parameters": {
@@ -777,11 +678,8 @@
       "name": "8c. Log Vacancy Processor Success",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -1088,
-        432
-      ],
-      "id": "4359dc0d-90be-46d0-a695-a5a958c9f8b1",
+      "position": [-1680, -224],
+      "id": "09b669a9-c362-4e26-8789-a30942bc00d2",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -800,11 +698,8 @@
       "name": "8d. Log Vacancy Processor Error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -1088,
-        624
-      ],
-      "id": "d87de581-5adf-434b-a85b-f9834452e288",
+      "position": [-1680, -32],
+      "id": "e6c61429-b566-486d-9973-59f8b0560356",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -823,11 +718,8 @@
       "name": "8e. Alert Vacancy Processor Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        -864,
-        624
-      ],
-      "id": "01889aa0-6d18-4dfe-9c43-c065d2a268c9",
+      "position": [-1456, -32],
+      "id": "6c8eedf8-8bee-4f6a-ad6a-08103a21dd8b",
       "webhookId": "af5b0b52-144b-49d5-ac82-836cefbf532f",
       "credentials": {
         "telegramApi": {
@@ -838,6 +730,17 @@
     }
   ],
   "connections": {
+    "hr.in.candidates": {
+      "main": [
+        [
+          {
+            "node": "0a. Build Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "4. Is Spam?": {
       "main": [
         [
@@ -872,6 +775,17 @@
         [
           {
             "node": "3b. Insert Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger (HR)": {
+      "main": [
+        [
+          {
+            "node": "0a. Build Envelope",
             "type": "main",
             "index": 0
           }
@@ -1135,22 +1049,22 @@
         ]
       ]
     },
-    "7e. Build Telegram Payload": {
+    "Send a text message (HR)": {
       "main": [
         [
           {
-            "node": "Send a text message (HR)",
+            "node": "8a. Is Candidate Intent?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "hr.in.candidates": {
+    "7e. Build Telegram Payload": {
       "main": [
         [
           {
-            "node": "0a. Build Envelope",
+            "node": "Send a text message (HR)",
             "type": "main",
             "index": 0
           }
@@ -1225,27 +1139,10 @@
           }
         ]
       ]
-    },
-    "Gmail Trigger (HR)": {
-      "main": [
-        [
-          {
-            "node": "0a. Build Envelope",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send a text message (HR)": {
-      "main": [
-        []
-      ]
     }
   },
   "pinData": {},
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "d9b4613eb5424e94bdb5b0783bcc8fa6"
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
   }
 }
