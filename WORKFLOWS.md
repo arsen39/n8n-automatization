@@ -196,7 +196,7 @@
 
 | Шаг | Воркфлоу | Назначение |
 | --- | --- | --- |
-| 1 | `crm.in.forms` | Принимает вебхуки/письма подписки, нормализует payload и определяет `intent=newsletter`. |
+| 1 | `mkt.in.newsletter_form` | Принимает вебхуки подписки, нормализует payload и передаёт его в процессор рассылки. |
 | 2 | `mkt.proc.newsletter` | Создаёт/обновляет контакт, сохраняет подписку, отправляет DOI/welcome, логирует событие. |
 | 3 | `mkt.proc.digest` | Крон-дегист: собирает новые материалы и рассылает их активным подписчикам. |
 | 4 | `mkt.proc.unsubscribe` | Обрабатывает отписку по уникальному токену и фиксирует согласия. |
@@ -205,9 +205,23 @@
 
 ---
 
+## `mkt.in.newsletter_form`
+
+**Триггер:** Webhook (`/newsletter/form`, метод настраивается через `NEWSLETTER_FORM_METHOD`), ответ собирается через `Respond to Webhook`.
+
+**Основной сценарий:**
+
+1. **Normalize Request.** Извлекаем email, имя, язык, таймзону, согласия и `source_code` из `body`/`query`/`headers`, прикладываем исходный запрос в `raw_request` для аудита.
+2. **Trigger Newsletter Processor.** Синхронно вызываем `mkt.proc.newsletter` (`waitForSubWorkflow=true`), полагаясь на его идемпотентность.
+3. **Respond.** Возвращаем 200/422/500 с JSON (`status`, `subscriber_id`, `should_send_doi`, `should_send_welcome`), чтобы фронт мог показать пользователю итог.
+
+**Почему отдельный вход:** поток подписок не требует AI-классификации, а значит не должен гонять нагрузки через `crm.in.forms`. Разделение снижает задержки Anthropic-нод и чётко разводит заявки и маркетинговые формы.
+
+---
+
 ## `mkt.proc.newsletter`
 
-**Триггер:** вызов из `crm.in.forms` (`Execute Workflow`) при `form_code='newsletter'` или `classification.intent='newsletter'`.
+**Триггер:** вызов из `mkt.in.newsletter_form` (`Execute Workflow`) или другого intake с `intent='newsletter'`.
 
 **Основной сценарий:**
 

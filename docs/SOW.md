@@ -18,7 +18,7 @@
 
 ### 1.1. Что автоматизируем сейчас
 
-- Обработка 3 типов форм сайта: **dev_request**, **vacancy**, **newsletter**.
+- Обработка 3 типов форм сайта: **dev_request**, **vacancy** (через `crm.in.forms`), **newsletter** (через `mkt.in.newsletter_form`).
     
 - Подключение **email‑инбокса** в общий входящий конвейер.
     
@@ -190,8 +190,8 @@ _(Примечание: в Приложении A — полезные SQL дл�
 
 ### 6.A) Универсальный входящий конвейер (Forms/Webhooks)
 
-**Workflow:** `crm.in.forms`  
-**Trigger:** `Webhook` (по формам `dev_request`, `vacancy`, `newsletter`), заголовок `X-Resource` + `X-Form-Code`.
+**Workflow:** `crm.in.forms`
+**Trigger:** `Webhook` (по формам `dev_request`, `vacancy`), заголовок `X-Resource` + `X-Form-Code`. Подписки (`newsletter`) идут через отдельный `mkt.in.newsletter_form`.
 
 **Steps:**
 
@@ -299,19 +299,21 @@ _(Примечание: в Приложении A — полезные SQL дл�
 
 ### 6.D) Newsletter подписка
 
-**Workflow:** `mkt.proc.newsletter`
+**Workflow:** `mkt.in.newsletter_form` → `mkt.proc.newsletter`
 
-**Trigger:** `crm.in.forms` с `form_code='newsletter'`.
+**Trigger:** `mkt.in.newsletter_form` слушает webhook `/newsletter/form` (метод задаётся через `NEWSLETTER_FORM_METHOD`) и вызывает `mkt.proc.newsletter` как саб-флоу.
 
 **Steps:**
 
-1. **Upsert Contact** и `newsletter_subscribers(status='subscribed')`.
-    
-2. (Опционально) **Double Opt‑in** письмо.
-    
-3. **Welcome** письмо + настройки частоты.
-    
-4. **Content Digest** (см. 6.H): периодический дайджест новых статей с Chain.do.
+1. **Normalize & Route** (`mkt.in.newsletter_form`): собираем email/согласия, приводим `source_code`, передаём payload в процессор.
+
+2. **Upsert Contact/Subscriber** (`mkt.proc.newsletter`): создаём/обновляем `contacts` и `newsletter_subscribers`.
+
+3. (Опционально) **Double Opt‑in** письмо.
+
+4. **Welcome** письмо + настройки частоты.
+
+5. **Content Digest** (см. 6.H): периодический дайджест новых статей с Chain.do.
     
 
 **Acceptance:**
