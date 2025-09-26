@@ -12,11 +12,9 @@
       "name": "[START] Newsletter Manage",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        -1880,
-        -60
-      ],
-      "id": "1f88c455-6107-425f-8664-d0650a135a64"
+      "position": [-2896, -224],
+      "id": "f0a163e3-7ef3-4b56-8116-6ccb8c7006c1",
+      "webhookId": "d61f3e86-c877-4df6-a70f-7f29af1fa67b"
     },
     {
       "parameters": {
@@ -25,11 +23,8 @@
       "name": "1. Extract Token",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -1600,
-        -60
-      ],
-      "id": "88c08337-392f-4b83-81db-19e76921f206"
+      "position": [-2608, -224],
+      "id": "d2a70c20-b58b-4a05-aa55-270bfa226e95"
     },
     {
       "parameters": {
@@ -44,43 +39,27 @@
               }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "1a. Token Provided?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -1380,
-        -60
-      ],
-      "id": "604b72c1-37a6-4dd1-a06d-01fbdabe1300"
+      "position": [-2400, -224],
+      "id": "3f1fcd51-9815-43a8-b473-d36f54771267"
     },
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "error"
-            },
-            {
-              "fieldId": "reason",
-              "fieldValue": "missing_token"
-            }
-          ]
+          "values": [{}, {}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "1b. Outcome: Missing Token",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        -1180,
-        -220
-      ],
-      "id": "c09fe4f2-4f1a-48b8-ac6c-ed9b031ca134"
+      "position": [-2192, -384],
+      "id": "f08d0c03-5d00-4d1f-9386-e2b8c0a075d5"
     },
     {
       "parameters": {
@@ -93,11 +72,8 @@
       "name": "2. Lookup Subscriber",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -1180,
-        100
-      ],
-      "id": "36ed1a89-477e-4cfd-8fd8-e7252ff4942d",
+      "position": [-2192, -64],
+      "id": "56223e04-cb2f-4c49-a863-63fba8144334",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -112,11 +88,8 @@
       "name": "3. Evaluate Subscriber",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -960,
-        100
-      ],
-      "id": "fd0ed85d-8c0c-450d-8f48-b3c81202250b"
+      "position": [-1968, -64],
+      "id": "61e9dd5e-a5f8-4e28-bbba-ddfdce9bb69f"
     },
     {
       "parameters": {
@@ -131,43 +104,27 @@
               }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "3a. Subscriber Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -740,
-        100
-      ],
-      "id": "1644a1f7-b958-4d46-b4ed-32348bc52716"
+      "position": [-1760, -64],
+      "id": "e9e48b26-4df2-4165-be9e-c95594f5fe4d"
     },
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "error"
-            },
-            {
-              "fieldId": "reason",
-              "fieldValue": "not_found"
-            }
-          ]
+          "values": [{}, {}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "3b. Outcome: Not Found",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        -520,
-        -60
-      ],
-      "id": "2c7beaf6-bea7-4e46-9d5c-4d0d8336da5b"
+      "position": [-1536, -224],
+      "id": "50bafbab-305f-4bea-b581-6bed899e520f"
     },
     {
       "parameters": {
@@ -183,16 +140,14 @@
               "rightValue": "confirm"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "4. Confirm Action?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -520,
-        220
-      ],
-      "id": "39bcfb0b-d10f-455b-94da-760585ae4924"
+      "position": [-1536, 64],
+      "id": "7724f15f-d236-4572-87f8-55bc33466c93"
     },
     {
       "parameters": {
@@ -208,16 +163,14 @@
               "rightValue": "pending_opt_in"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "4a. Pending Opt-In?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -300,
-        320
-      ],
-      "id": "00d07b8d-723f-44f4-8123-2b4381ddc43b"
+      "position": [-1312, 160],
+      "id": "3d7f2932-54eb-4aea-871a-767a3910b941"
     },
     {
       "parameters": {
@@ -230,11 +183,8 @@
       "name": "5. Confirm Subscriber",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -60,
-        420
-      ],
-      "id": "3d0f23be-f67f-47e7-bb9c-cfcc323f4f88",
+      "position": [-1072, 256],
+      "id": "faf29959-f108-44dc-b6d2-3ca98eaa9d08",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -249,11 +199,8 @@
       "name": "5b. Compose Confirm Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        180,
-        420
-      ],
-      "id": "61027f1b-7c40-4f81-862a-8bd7aa4c8a74"
+      "position": [-832, 256],
+      "id": "01a76057-2e4d-44e6-8c6f-6cdc3df7844b"
     },
     {
       "parameters": {
@@ -261,24 +208,19 @@
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.body_text }}",
         "options": {
-          "appendAttribution": false,
-          "additionalFields": {
-            "htmlMessage": "={{ $json.body_html }}"
-          }
+          "appendAttribution": false
         }
       },
       "name": "5c. Send Confirm Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [
-        420,
-        420
-      ],
-      "id": "2ccbab6c-a5ca-4af7-8dd2-750fec56cdf8",
+      "position": [-592, 256],
+      "id": "0d8f534f-3a23-4139-8654-93ea90d2d3f1",
+      "webhookId": "6d9adc1e-7754-4e15-bbbb-62f213c632ba",
       "credentials": {
         "gmailOAuth2": {
-          "id": "WQjBT9KV8K1F6bNi",
-          "name": "Gmail OAuth"
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
         }
       }
     },
@@ -293,11 +235,8 @@
       "name": "5d. Log Confirm Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        660,
-        420
-      ],
-      "id": "410b51e6-338d-4025-86ea-1dd3e1f875dc",
+      "position": [-352, 256],
+      "id": "9eccc42d-e5f8-49d7-8726-6b33d01a5593",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -316,11 +255,8 @@
       "name": "5e. Log Confirm Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        900,
-        420
-      ],
-      "id": "a7add3b4-3ea4-4ba6-8437-5e155c9e4387",
+      "position": [-112, 256],
+      "id": "3eddaba0-15d2-4684-bc24-881a32d95dbb",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -331,48 +267,28 @@
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "confirmed"
-            }
-          ]
+          "values": [{}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "5f. Outcome: Confirmed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        1140,
-        420
-      ],
-      "id": "0a4a5d9b-3c6b-4e0a-8cb0-0cf6f0c18844"
+      "position": [128, 256],
+      "id": "dfab2179-d4d5-4c7d-9235-c039bc0b1a01"
     },
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "already_confirmed"
-            }
-          ]
+          "values": [{}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "4b. Outcome: Already Confirmed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        -60,
-        220
-      ],
-      "id": "729edcf3-589b-4795-843e-4130f831450e"
+      "position": [-1072, 64],
+      "id": "2d315a08-6725-4c2b-9c90-6e16a6a9db03"
     },
     {
       "parameters": {
@@ -385,11 +301,8 @@
       "name": "6. Mark Unsubscribed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -60,
-        -20
-      ],
-      "id": "c8690283-fc16-4caa-9591-6647a39560ce",
+      "position": [-1072, -192],
+      "id": "eaaac192-643d-4dd1-9284-dbd1d4d23baf",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -404,11 +317,8 @@
       "name": "6b. Compose Unsub Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        180,
-        -20
-      ],
-      "id": "a887ad1b-ad4f-4942-bfc7-1e68ec2867df"
+      "position": [-832, -192],
+      "id": "3402c5cb-6d22-43de-9e23-1da1d29efe52"
     },
     {
       "parameters": {
@@ -416,24 +326,19 @@
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.body_text }}",
         "options": {
-          "appendAttribution": false,
-          "additionalFields": {
-            "htmlMessage": "={{ $json.body_html }}"
-          }
+          "appendAttribution": false
         }
       },
       "name": "6c. Send Unsub Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [
-        420,
-        -20
-      ],
-      "id": "9ff6a951-7a3b-4c29-8dda-3338100c8259",
+      "position": [-592, -192],
+      "id": "6f2878e3-0a8e-45e7-b23a-18afa6108ef7",
+      "webhookId": "0fdd5c0c-036a-44e4-a3ad-f6c204399a61",
       "credentials": {
         "gmailOAuth2": {
-          "id": "WQjBT9KV8K1F6bNi",
-          "name": "Gmail OAuth"
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
         }
       }
     },
@@ -448,11 +353,8 @@
       "name": "6d. Log Unsub Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        660,
-        -20
-      ],
-      "id": "a451d7ec-cf5d-4d4f-9d32-068a821a3fd5",
+      "position": [-352, -192],
+      "id": "71640827-4aac-4377-806a-9f73d5072d74",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -471,11 +373,8 @@
       "name": "6e. Log Unsub Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        900,
-        -20
-      ],
-      "id": "4e8c5030-1f61-4eb3-8f28-6fae9dad8f3f",
+      "position": [-112, -192],
+      "id": "30c54446-cef9-423a-b4e8-1441f216bd4e",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -486,40 +385,27 @@
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "unsubscribed"
-            }
-          ]
+          "values": [{}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "6f. Outcome: Unsubscribed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        1140,
-        -20
-      ],
-      "id": "d3e9409f-9327-4ee1-9f9c-fcb6abcb1e7a"
+      "position": [128, -192],
+      "id": "b7295313-3f46-416b-b71f-9e83fce45039"
     },
     {
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ $json }}",
-        "responseCode": 200
+        "options": {}
       },
       "name": "7. Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1400,
-        200
-      ],
-      "id": "5f6a9cfa-5f2e-4f7f-9157-484b3e5fc2a7"
+      "position": [400, 48],
+      "id": "4c91166a-9735-4d4f-9374-30e781ecee27"
     },
     {
       "parameters": {
@@ -532,11 +418,8 @@
       "name": "5a. Load Confirm Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        180,
-        540
-      ],
-      "id": "e49a1e1f-ee98-4d04-b765-0fd9f8a09de7",
+      "position": [-832, 384],
+      "id": "a6742732-513a-4ada-bf08-887f68a3000f",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -555,11 +438,8 @@
       "name": "6a. Load Unsub Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        180,
-        -160
-      ],
-      "id": "6019496d-1111-4887-9de4-c65c4cd15094",
+      "position": [-832, -320],
+      "id": "e122f270-0256-4a9c-bbe3-5fc4bc8eae04",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -598,11 +478,7 @@
             "node": "2. Lookup Subscriber",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "1b. Outcome: Missing Token",
             "type": "main",
@@ -651,11 +527,7 @@
             "node": "4. Confirm Action?",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "3b. Outcome: Not Found",
             "type": "main",
@@ -682,11 +554,7 @@
             "node": "6. Mark Unsubscribed",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "true": [
-        [
+          },
           {
             "node": "4a. Pending Opt-In?",
             "type": "main",
@@ -702,24 +570,9 @@
             "node": "5. Confirm Subscriber",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "4b. Outcome: Already Confirmed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4b. Outcome: Already Confirmed": {
-      "main": [
-        [
-          {
-            "node": "7. Respond",
             "type": "main",
             "index": 0
           }
@@ -737,55 +590,11 @@
         ]
       ]
     },
-    "6. Mark Unsubscribed": {
-      "main": [
-        [
-          {
-            "node": "6a. Load Unsub Template",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "5b. Compose Confirm Email": {
       "main": [
         [
           {
             "node": "5c. Send Confirm Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5c. Send Confirm Email": {
-      "main": [
-        [
-          {
-            "node": "5c. Log Confirm Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5d. Log Confirm Message": {
-      "main": [
-        [
-          {
-            "node": "5d. Log Confirm Event",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5e. Log Confirm Event": {
-      "main": [
-        [
-          {
-            "node": "5e. Outcome: Confirmed",
             "type": "main",
             "index": 0
           }
@@ -803,44 +612,33 @@
         ]
       ]
     },
+    "4b. Outcome: Already Confirmed": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Mark Unsubscribed": {
+      "main": [
+        [
+          {
+            "node": "6a. Load Unsub Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "6b. Compose Unsub Email": {
       "main": [
         [
           {
             "node": "6c. Send Unsub Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6c. Send Unsub Email": {
-      "main": [
-        [
-          {
-            "node": "6c. Log Unsub Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6d. Log Unsub Message": {
-      "main": [
-        [
-          {
-            "node": "6d. Log Unsub Event",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6e. Log Unsub Event": {
-      "main": [
-        [
-          {
-            "node": "6e. Outcome: Unsubscribed",
             "type": "main",
             "index": 0
           }
@@ -883,6 +681,7 @@
   },
   "pinData": {},
   "meta": {
-    "instanceId": "50d1c9c2c5e04611a57f01bf49db586bfb2f59cac14e379f3421f8a5cc6cf4d3"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
   }
 }

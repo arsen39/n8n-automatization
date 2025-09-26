@@ -5,11 +5,8 @@
       "name": "[START] mkt.proc.newsletter",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [
-        -1760,
-        0
-      ],
-      "id": "802425e8-789e-4411-b621-34bf35fb45bc"
+      "position": [-4352, 176],
+      "id": "f4e97da4-257e-4b18-be7d-5d324d508bb9"
     },
     {
       "parameters": {
@@ -18,11 +15,8 @@
       "name": "1. Normalize Payload",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -1500,
-        0
-      ],
-      "id": "16d018bc-0b04-4a2d-85d4-0e56dbd9d38f"
+      "position": [-4096, 176],
+      "id": "26a40912-8aa9-44bc-9f51-ae547108fe9c"
     },
     {
       "parameters": {
@@ -38,16 +32,14 @@
               "rightValue": "accepted"
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "1a. Is Accepted?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -1280,
-        0
-      ],
-      "id": "69e20513-4f7e-48d8-8e6c-fa90d5f79b16"
+      "position": [-3872, 176],
+      "id": "7c4734fd-957a-4835-b5ef-d05bbcaa6208"
     },
     {
       "parameters": {
@@ -56,11 +48,8 @@
       "name": "1b. Rejection Response",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -1080,
-        -200
-      ],
-      "id": "d579488a-7667-40e9-b3ba-8249faf7eb5e"
+      "position": [-3680, -32],
+      "id": "36230b1e-dc93-4e31-836f-2b85a6e6c3fb"
     },
     {
       "parameters": {
@@ -73,11 +62,8 @@
       "name": "2. Resolve Source",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -1080,
-        120
-      ],
-      "id": "906d5d13-7e0f-4f94-a9d1-6179c3298b20",
+      "position": [-3680, 304],
+      "id": "0cf8394b-f8a1-4146-8f9b-9075ca513a59",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -96,11 +82,8 @@
       "name": "3. Upsert Contact",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -840,
-        120
-      ],
-      "id": "43b73e49-1e2d-4dc2-90fe-a437e4acb48a",
+      "position": [-3440, 304],
+      "id": "988bd55f-4d52-421d-bc49-c94b0d4b30df",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -115,11 +98,8 @@
       "name": "4. Assemble Context",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -600,
-        120
-      ],
-      "id": "5e55598e-5f81-4283-99c2-9d1884f813ad"
+      "position": [-3200, 304],
+      "id": "460955af-a576-4734-aae6-628898288d11"
     },
     {
       "parameters": {
@@ -132,11 +112,8 @@
       "name": "5. Upsert Subscriber",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -360,
-        120
-      ],
-      "id": "07076857-53cc-4abe-a6fc-3cdb75efad62",
+      "position": [-2960, 304],
+      "id": "efdd95b8-a330-4614-a173-6be1164f152e",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -151,11 +128,8 @@
       "name": "6. Decide Next Step",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -120,
-        120
-      ],
-      "id": "234d135f-1902-4ad3-8ad0-a95aa0dbd3b3"
+      "position": [-2720, 304],
+      "id": "413281cd-c5df-406f-8ec3-8f6b873b069f"
     },
     {
       "parameters": {
@@ -170,16 +144,14 @@
               }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "7. Needs DOI?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        120,
-        0
-      ],
-      "id": "3fc619b0-a4f4-4f35-aace-b92c9d97a4ec"
+      "position": [-2480, 176],
+      "id": "4eb655dd-3121-4fd6-928f-e823d97c6bf6"
     },
     {
       "parameters": {
@@ -188,11 +160,8 @@
       "name": "8b. Compose DOI Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        360,
-        -160
-      ],
-      "id": "39a53cec-cf9c-42b9-bba3-facb6386a5ae"
+      "position": [-2240, 16],
+      "id": "913fb618-d4de-4940-a0ca-887d14a18b63"
     },
     {
       "parameters": {
@@ -200,24 +169,19 @@
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.body_text }}",
         "options": {
-          "appendAttribution": false,
-          "additionalFields": {
-            "htmlMessage": "={{ $json.body_html }}"
-          }
+          "appendAttribution": false
         }
       },
       "name": "9. Send DOI Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [
-        600,
-        -160
-      ],
-      "id": "7b53b771-6ecf-4de7-bfeb-7cd4f70230bf",
+      "position": [-2000, 16],
+      "id": "68fda31d-ca88-4994-9d76-2bd10a44623f",
+      "webhookId": "e6e4fdf7-89b1-439f-b5c7-fb6e833d1d50",
       "credentials": {
         "gmailOAuth2": {
-          "id": "WQjBT9KV8K1F6bNi",
-          "name": "Gmail OAuth"
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
         }
       }
     },
@@ -232,11 +196,8 @@
       "name": "10. Log DOI Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        840,
-        -160
-      ],
-      "id": "f6d178a4-1013-4860-aeb2-0d39e91f5267",
+      "position": [-1760, 16],
+      "id": "da5fbb04-5505-4581-9502-d620e7222400",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -255,11 +216,8 @@
       "name": "11. Log DOI Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1080,
-        -160
-      ],
-      "id": "87880ad5-8b01-49fa-8e27-067e06f1f5ec",
+      "position": [-1520, 16],
+      "id": "c7661d1a-0396-406a-b507-bc9756ad3642",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -280,16 +238,14 @@
               }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "12. Send Welcome?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        360,
-        200
-      ],
-      "id": "e8153261-4eb1-4737-8c88-1f37f46d3e2f"
+      "position": [-2240, 384],
+      "id": "34e91d70-b4a0-404c-9671-35792a8327cf"
     },
     {
       "parameters": {
@@ -298,11 +254,8 @@
       "name": "13b. Compose Welcome Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        600,
-        200
-      ],
-      "id": "6ef6d5fe-8ff0-459f-bb14-f57f909b807c"
+      "position": [-2000, 384],
+      "id": "a8f7a675-b1a5-4df2-987b-d7eb45272f86"
     },
     {
       "parameters": {
@@ -310,24 +263,19 @@
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.body_text }}",
         "options": {
-          "appendAttribution": false,
-          "additionalFields": {
-            "htmlMessage": "={{ $json.body_html }}"
-          }
+          "appendAttribution": false
         }
       },
       "name": "14. Send Welcome Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [
-        840,
-        200
-      ],
-      "id": "49972b81-6667-4c93-bc25-8d13e4660905",
+      "position": [-1760, 384],
+      "id": "f275b163-dc34-4770-8a03-e112019f163a",
+      "webhookId": "116ebf76-5866-4a0a-b6c0-f6b82f1c9440",
       "credentials": {
         "gmailOAuth2": {
-          "id": "WQjBT9KV8K1F6bNi",
-          "name": "Gmail OAuth"
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
         }
       }
     },
@@ -342,11 +290,8 @@
       "name": "15. Log Welcome Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1080,
-        200
-      ],
-      "id": "12851299-c79c-4200-977e-317a5c0f7051",
+      "position": [-1520, 384],
+      "id": "88c5d1ad-309e-49d5-8e3e-45e6e4990073",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -365,11 +310,8 @@
       "name": "16. Log Welcome Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1320,
-        200
-      ],
-      "id": "2b12e131-1307-40f7-ab33-5f7f724148ea",
+      "position": [-1280, 384],
+      "id": "3cd4bcab-249f-4c90-9d38-8c910d5e4694",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -380,43 +322,15 @@
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "={{ $json.subscriber_status }}"
-            },
-            {
-              "fieldId": "subscriber_id",
-              "fieldValue": "={{ $json.subscriber_id }}"
-            },
-            {
-              "fieldId": "contact_id",
-              "fieldValue": "={{ $json.contact_id }}"
-            },
-            {
-              "fieldId": "double_opt_in",
-              "fieldValue": "={{ $json.double_opt_in }}"
-            },
-            {
-              "fieldId": "should_send_doi",
-              "fieldValue": "={{ $json.should_send_doi }}"
-            },
-            {
-              "fieldId": "should_send_welcome",
-              "fieldValue": "={{ $json.should_send_welcome }}"
-            }
-          ]
+          "values": [{}, {}, {}, {}, {}, {}]
         },
         "options": {}
       },
       "name": "17. Return Result",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        1560,
-        40
-      ],
-      "id": "0092b1c8-ace7-4b87-a0a2-2327baafccc2"
+      "position": [-1040, 224],
+      "id": "50b2c6fd-0bfc-458c-ace8-ace5e18fff50"
     },
     {
       "parameters": {
@@ -429,11 +343,8 @@
       "name": "8a. Load DOI Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        360,
-        -320
-      ],
-      "id": "7983aa08-0509-4a45-8b5b-1ce3a47e3f27",
+      "position": [-2240, -144],
+      "id": "7309738e-3028-4d67-94f0-f0f81c45e5db",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -452,11 +363,8 @@
       "name": "13a. Load Welcome Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        600,
-        40
-      ],
-      "id": "2d040543-5ecf-4bea-b656-e9122d40d5c6",
+      "position": [-2000, 224],
+      "id": "1d475838-dd64-42e8-804f-340ebf540e2b",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -495,11 +403,7 @@
             "node": "2. Resolve Source",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "1b. Rejection Response",
             "type": "main",
@@ -571,20 +475,6 @@
             "type": "main",
             "index": 0
           }
-        ],
-        [
-          {
-            "node": "12. Send Welcome?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "17. Return Result",
-            "type": "main",
-            "index": 0
-          }
         ]
       ]
     },
@@ -595,13 +485,20 @@
             "node": "8a. Load DOI Template",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "12. Send Welcome?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8b. Compose DOI Email": {
+      "main": [
+        [
+          {
+            "node": "9. Send DOI Email",
             "type": "main",
             "index": 0
           }
@@ -648,13 +545,20 @@
             "node": "13a. Load Welcome Template",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13b. Compose Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "14. Send Welcome Email",
             "type": "main",
             "index": 0
           }
@@ -694,28 +598,6 @@
         ]
       ]
     },
-    "8b. Compose DOI Email": {
-      "main": [
-        [
-          {
-            "node": "9. Send DOI Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "13b. Compose Welcome Email": {
-      "main": [
-        [
-          {
-            "node": "14. Send Welcome Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "8a. Load DOI Template": {
       "main": [
         [
@@ -741,6 +623,7 @@
   },
   "pinData": {},
   "meta": {
-    "instanceId": "5a2bd076f44d4c2f8a3d812a5ba07f2ad0a6d83655e272c41c8be9fcbf08f6f7"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
   }
 }
