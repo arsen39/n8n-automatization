@@ -1,0 +1,676 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "[START] mkt.proc.newsletter",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        0
+      ],
+      "id": "802425e8-789e-4411-b621-34bf35fb45bc"
+    },
+    {
+      "parameters": {
+        "functionCode": "const input = items[0]?.json ?? {};\nconst { createHash, randomUUID } = await import('node:crypto');\n\nconst email = String(input.email ?? '').trim().toLowerCase();\nconst sourceCode = String(input.source_code ?? 'main_site').trim().toLowerCase() || 'main_site';\nconst fullName = input.full_name ? String(input.full_name).trim() : null;\nconst preferredLang = (input.preferred_lang ?? 'ru').toString().trim().toLowerCase() || 'ru';\nconst timezone = input.timezone ? String(input.timezone).trim() || null : null;\nconst consentVersion = input.consent_version ? String(input.consent_version).trim() : 'v1';\nconst doubleOptIn = input.double_opt_in !== false;\n\nconst acceptsMarketingRaw = input.accepts_marketing;\nconst acceptsMarketing = acceptsMarketingRaw === true || String(acceptsMarketingRaw ?? '').toLowerCase() === 'true' || ['yes','y','1','on'].includes(String(acceptsMarketingRaw ?? '').toLowerCase());\nconst acceptsTermsRaw = input.accepts_terms;\nconst acceptsTerms = acceptsTermsRaw === true || String(acceptsTermsRaw ?? '').toLowerCase() === 'true' || ['yes','y','1','on'].includes(String(acceptsTermsRaw ?? '').toLowerCase());\n\nconst errors = [];\nif (!email) errors.push('email_required');\nif (!acceptsMarketing) errors.push('marketing_consent_required');\nif (!acceptsTerms) errors.push('terms_consent_required');\n\nif (errors.length) {\n  return [{\n    json: {\n      status: 'rejected',\n      reason: 'validation_failed',\n      errors,\n      payload: input\n    }\n  }];\n}\n\nconst unsubscribeToken = input.unsubscribe_token && String(input.unsubscribe_token).length >= 16\n  ? String(input.unsubscribe_token)\n  : randomUUID();\n\nconst dedupeKey = createHash('sha256').update(`${email}:${sourceCode}`).digest('hex');\n\nreturn [{\n  json: {\n    status: 'accepted',\n    email,\n    full_name: fullName,\n    preferred_lang: preferredLang || 'ru',\n    timezone: timezone || null,\n    source_code: sourceCode,\n    consent_version: consentVersion,\n    double_opt_in: doubleOptIn,\n    unsubscribe_token: unsubscribeToken,\n    dedupe_key: dedupeKey,\n    raw_payload: input\n  }\n}];"
+      },
+      "name": "1. Normalize Payload",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1500,
+        0
+      ],
+      "id": "16d018bc-0b04-4a2d-85d4-0e56dbd9d38f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $('1. Normalize Payload').item.json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "accepted"
+            }
+          ]
+        }
+      },
+      "name": "1a. Is Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1280,
+        0
+      ],
+      "id": "69e20513-4f7e-48d8-8e6c-fa90d5f79b16"
+    },
+    {
+      "parameters": {
+        "functionCode": "const normalized = $('1. Normalize Payload').item.json;\nreturn [{\n  json: {\n    status: normalized.status,\n    reason: normalized.reason || 'validation_failed',\n    errors: normalized.errors || [],\n    payload: normalized.raw_payload || {}\n  }\n}];"
+      },
+      "name": "1b. Rejection Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1080,
+        -200
+      ],
+      "id": "d579488a-7667-40e9-b3ba-8249faf7eb5e"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH requested AS (\n  SELECT id FROM sources WHERE code = $1\n),\nfallback AS (\n  SELECT id FROM sources WHERE code = 'main_site'\n)\nSELECT COALESCE((SELECT id FROM requested), (SELECT id FROM fallback)) AS source_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('1. Normalize Payload').item.json.source_code ] }}"
+        }
+      },
+      "name": "2. Resolve Source",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1080,
+        120
+      ],
+      "id": "906d5d13-7e0f-4f94-a9d1-6179c3298b20",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH existing AS (\n  SELECT id FROM contacts WHERE lower(email) = lower($1) ORDER BY updated_at DESC LIMIT 1\n),\nupdated AS (\n  UPDATE contacts\n  SET\n    full_name = COALESCE(NULLIF($2, ''), contacts.full_name),\n    preferred_lang = COALESCE(NULLIF($3, ''), contacts.preferred_lang),\n    timezone = COALESCE(NULLIF($4, ''), contacts.timezone),\n    updated_at = NOW()\n  WHERE id IN (SELECT id FROM existing)\n  RETURNING id\n),\ninserted AS (\n  INSERT INTO contacts (email, full_name, preferred_lang, timezone)\n  SELECT $1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, '')\n  WHERE NOT EXISTS (SELECT 1 FROM existing)\n  RETURNING id\n)\nSELECT COALESCE((SELECT id FROM updated), (SELECT id FROM inserted)) AS contact_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('1. Normalize Payload').item.json.email, $('1. Normalize Payload').item.json.full_name ?? '', $('1. Normalize Payload').item.json.preferred_lang ?? 'ru', $('1. Normalize Payload').item.json.timezone ?? '' ] }}"
+        }
+      },
+      "name": "3. Upsert Contact",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -840,
+        120
+      ],
+      "id": "43b73e49-1e2d-4dc2-90fe-a437e4acb48a",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const payload = $('1. Normalize Payload').item.json;\nconst sourceRow = $('2. Resolve Source').item.json;\nconst contactRow = $('3. Upsert Contact').item.json;\n\nreturn [{\n  json: {\n    ...payload,\n    contact_id: contactRow?.contact_id || null,\n    source_id: sourceRow?.source_id || null,\n    subscriber_status: payload.double_opt_in ? 'pending_opt_in' : 'subscribed'\n  }\n}];"
+      },
+      "name": "4. Assemble Context",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        120
+      ],
+      "id": "5e55598e-5f81-4283-99c2-9d1884f813ad"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH payload AS (\n  SELECT\n    $1::uuid AS contact_id,\n    $2::int AS source_id,\n    $3::text AS status,\n    $4::text AS unsubscribe_token,\n    $5::text AS dedupe_key,\n    $6::text AS consent_version,\n    $7::boolean AS double_opt_in_required\n),\nexisting AS (\n  SELECT\n    ns.id,\n    ns.status AS previous_status,\n    ns.confirmed_at AS previous_confirmed_at\n  FROM newsletter_subscribers ns\n  JOIN payload p ON p.contact_id = ns.contact_id\n),\nupdated AS (\n  UPDATE newsletter_subscribers ns\n  SET\n    source_id = payload.source_id,\n    status = payload.status,\n    unsubscribe_token = payload.unsubscribe_token,\n    dedupe_key = payload.dedupe_key,\n    consent_version = payload.consent_version,\n    double_opt_in_required = payload.double_opt_in_required,\n    confirmed_at = CASE\n      WHEN payload.double_opt_in_required THEN ns.confirmed_at\n      ELSE NOW()\n    END,\n    unsubscribed_at = CASE\n      WHEN payload.status = 'unsubscribed' THEN COALESCE(ns.unsubscribed_at, NOW())\n      ELSE NULL\n    END,\n    updated_at = NOW()\n  FROM payload\n  WHERE ns.contact_id = payload.contact_id\n  RETURNING ns.id, ns.contact_id, ns.status, ns.unsubscribe_token, ns.double_opt_in_required, ns.confirmed_at, ns.unsubscribed_at, ns.updated_at,\n    (SELECT previous_status FROM existing) AS previous_status,\n    (SELECT previous_confirmed_at FROM existing) AS previous_confirmed_at,\n    FALSE AS is_new\n),\ninserted AS (\n  INSERT INTO newsletter_subscribers (contact_id, source_id, status, unsubscribe_token, dedupe_key, consent_version, double_opt_in_required, confirmed_at)\n  SELECT\n    payload.contact_id,\n    payload.source_id,\n    payload.status,\n    payload.unsubscribe_token,\n    payload.dedupe_key,\n    payload.consent_version,\n    payload.double_opt_in_required,\n    CASE WHEN payload.double_opt_in_required THEN NULL ELSE NOW() END\n  FROM payload\n  WHERE NOT EXISTS (SELECT 1 FROM existing)\n  RETURNING id, contact_id, status, unsubscribe_token, double_opt_in_required, confirmed_at, NULL::timestamptz AS unsubscribed_at, NOW() AS updated_at, NULL::subscriber_status AS previous_status, NULL::timestamptz AS previous_confirmed_at, TRUE AS is_new\n)\nSELECT * FROM inserted\nUNION ALL\nSELECT * FROM updated;",
+        "options": {
+          "queryReplacement": "={{ [ $('4. Assemble Context').item.json.contact_id, $('4. Assemble Context').item.json.source_id, $('4. Assemble Context').item.json.subscriber_status, $('4. Assemble Context').item.json.unsubscribe_token, $('4. Assemble Context').item.json.dedupe_key, $('4. Assemble Context').item.json.consent_version, $('4. Assemble Context').item.json.double_opt_in ] }}"
+        }
+      },
+      "name": "5. Upsert Subscriber",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -360,
+        120
+      ],
+      "id": "07076857-53cc-4abe-a6fc-3cdb75efad62",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const context = $('4. Assemble Context').item.json;\nconst subscriber = $json;\n\nconst pending = subscriber.status === 'pending_opt_in';\nconst wasPendingBefore = subscriber.previous_status === 'pending_opt_in';\nconst wasConfirmed = !!subscriber.previous_confirmed_at;\nconst isNew = subscriber.is_new === true;\n\nreturn [{\n  json: {\n    ...context,\n    subscriber_id: subscriber.id,\n    subscriber_status: subscriber.status,\n    unsubscribe_token: subscriber.unsubscribe_token,\n    double_opt_in_required: subscriber.double_opt_in_required,\n    confirmed_at: subscriber.confirmed_at,\n    unsubscribed_at: subscriber.unsubscribed_at,\n    previous_status: subscriber.previous_status,\n    previous_confirmed_at: subscriber.previous_confirmed_at,\n    is_new: isNew,\n    should_send_doi: pending,\n    should_send_welcome: !pending && (isNew || !wasConfirmed || wasPendingBefore)\n  }\n}];"
+      },
+      "name": "6. Decide Next Step",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        120
+      ],
+      "id": "234d135f-1902-4ad3-8ad0-a95aa0dbd3b3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.should_send_doi }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "isTrue"
+              }
+            }
+          ]
+        }
+      },
+      "name": "7. Needs DOI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        0
+      ],
+      "id": "3fc619b0-a4f4-4f35-aace-b92c9d97a4ec"
+    },
+    {
+      "parameters": {
+        "functionCode": "const context = $('6. Decide Next Step').item.json;\nconst baseUrl = $env.NEWSLETTER_CONFIRM_URL_BASE || 'https://example.com/newsletter/confirm';\nconst confirmUrl = `${baseUrl}?token=${encodeURIComponent(context.unsubscribe_token)}&action=confirm`;\n\nconst lang = context.preferred_lang || 'ru';\nconst subjects = {\n  ru: 'Подтвердите подписку на рассылку',\n  en: 'Please confirm your newsletter subscription',\n  pl: 'Potwierdź subskrypcję newslettera'\n};\nconst bodies = {\n  ru: `Привет!\n\nЧтобы завершить подписку, перейдите по ссылке: ${confirmUrl}\n\nЕсли вы не оставляли заявку, просто проигнорируйте письмо.`,\n  en: `Hi there!\n\nPlease confirm your subscription by clicking: ${confirmUrl}\n\nIf you didn't request this email, you can ignore it.`,\n  pl: `Cześć!\n\nPotwierdź subskrypcję klikając: ${confirmUrl}\n\nJeśli to nie Ty, zignoruj tę wiadomość.`\n};\n\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: context.email,\n    full_name: context.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    confirm_url: confirmUrl,\n    subscriber_id: context.subscriber_id,\n    contact_id: context.contact_id,\n    meta_kind: 'newsletter_doi'\n  }\n}];"
+      },
+      "name": "8. Build DOI Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -160
+      ],
+      "id": "39a53cec-cf9c-42b9-bba3-facb6386a5ae"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body_text }}",
+        "html": "={{ $json.body_html }}",
+        "options": {}
+      },
+      "name": "9. Send DOI Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -160
+      ],
+      "id": "7b53b771-6ecf-4de7-bfeb-7cd4f70230bf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WQjBT9KV8K1F6bNi",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_doi', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('8. Build DOI Email').item.json.body_text, $('8. Build DOI Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('8. Build DOI Email').item.json.email, $('8. Build DOI Email').item.json.subject ] }}"
+        }
+      },
+      "name": "10. Log DOI Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        840,
+        -160
+      ],
+      "id": "f6d178a4-1013-4860-aeb2-0d39e91f5267",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_doi_sent', jsonb_build_object('email', $2, 'subject', $3, 'confirm_url', $4))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('8. Build DOI Email').item.json.email, $('8. Build DOI Email').item.json.subject, $('8. Build DOI Email').item.json.confirm_url ] }}"
+        }
+      },
+      "name": "11. Log DOI Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1080,
+        -160
+      ],
+      "id": "87880ad5-8b01-49fa-8e27-067e06f1f5ec",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.should_send_welcome }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "isTrue"
+              }
+            }
+          ]
+        }
+      },
+      "name": "12. Send Welcome?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        360,
+        200
+      ],
+      "id": "e8153261-4eb1-4737-8c88-1f37f46d3e2f"
+    },
+    {
+      "parameters": {
+        "functionCode": "const context = $('6. Decide Next Step').item.json;\nconst baseUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(context.unsubscribe_token)}&action=unsubscribe`;\n\nconst lang = context.preferred_lang || 'ru';\nconst subjects = {\n  ru: 'Добро пожаловать в наш дайджест',\n  en: 'Welcome to our newsletter',\n  pl: 'Witamy w naszym newsletterze'\n};\nconst bodies = {\n  ru: `Привет${context.full_name ? `, ${context.full_name}` : ''}!\n\nСпасибо за подписку. Управлять настройками можно по ссылке ${baseUrl}.\nЕсли хотите отписаться, перейдите по ${unsubscribeUrl}.`,\n  en: `Hi${context.full_name ? `, ${context.full_name}` : ''}!\n\nThanks for subscribing. Manage your preferences here: ${baseUrl}.\nTo unsubscribe use ${unsubscribeUrl}.`,\n  pl: `Cześć${context.full_name ? `, ${context.full_name}` : ''}!\n\nDziękujemy za subskrypcję. Zarządzaj ustawieniami: ${baseUrl}.\nAby się wypisać kliknij ${unsubscribeUrl}.`\n};\n\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: context.email,\n    full_name: context.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    preferences_url: baseUrl,\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: context.subscriber_id,\n    contact_id: context.contact_id,\n    meta_kind: 'newsletter_welcome'\n  }\n}];"
+      },
+      "name": "13. Build Welcome Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        600,
+        200
+      ],
+      "id": "6ef6d5fe-8ff0-459f-bb14-f57f909b807c"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body_text }}",
+        "html": "={{ $json.body_html }}",
+        "options": {}
+      },
+      "name": "14. Send Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        840,
+        200
+      ],
+      "id": "49972b81-6667-4c93-bc25-8d13e4660905",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WQjBT9KV8K1F6bNi",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_welcome', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('13. Build Welcome Email').item.json.body_text, $('13. Build Welcome Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('13. Build Welcome Email').item.json.email, $('13. Build Welcome Email').item.json.subject ] }}"
+        }
+      },
+      "name": "15. Log Welcome Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1080,
+        200
+      ],
+      "id": "12851299-c79c-4200-977e-317a5c0f7051",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_welcome_sent', jsonb_build_object('email', $2, 'subject', $3, 'preferences_url', $4, 'unsubscribe_url', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('13. Build Welcome Email').item.json.email, $('13. Build Welcome Email').item.json.subject, $('13. Build Welcome Email').item.json.preferences_url, $('13. Build Welcome Email').item.json.unsubscribe_url ] }}"
+        }
+      },
+      "name": "16. Log Welcome Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1320,
+        200
+      ],
+      "id": "2b12e131-1307-40f7-ab33-5f7f724148ea",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.subscriber_status }}"
+            },
+            {
+              "fieldId": "subscriber_id",
+              "fieldValue": "={{ $json.subscriber_id }}"
+            },
+            {
+              "fieldId": "contact_id",
+              "fieldValue": "={{ $json.contact_id }}"
+            },
+            {
+              "fieldId": "double_opt_in",
+              "fieldValue": "={{ $json.double_opt_in }}"
+            },
+            {
+              "fieldId": "should_send_doi",
+              "fieldValue": "={{ $json.should_send_doi }}"
+            },
+            {
+              "fieldId": "should_send_welcome",
+              "fieldValue": "={{ $json.should_send_welcome }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "17. Return Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        40
+      ],
+      "id": "0092b1c8-ace7-4b87-a0a2-2327baafccc2"
+    }
+  ],
+  "connections": {
+    "[START] mkt.proc.newsletter": {
+      "main": [
+        [
+          {
+            "node": "1. Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "1a. Is Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1a. Is Accepted?": {
+      "main": [
+        [
+          {
+            "node": "2. Resolve Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "1b. Rejection Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. Rejection Response": {
+      "main": [
+        [
+          {
+            "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Resolve Source": {
+      "main": [
+        [
+          {
+            "node": "3. Upsert Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Upsert Contact": {
+      "main": [
+        [
+          {
+            "node": "4. Assemble Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Assemble Context": {
+      "main": [
+        [
+          {
+            "node": "5. Upsert Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Upsert Subscriber": {
+      "main": [
+        [
+          {
+            "node": "6. Decide Next Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Decide Next Step": {
+      "main": [
+        [
+          {
+            "node": "7. Needs DOI?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "12. Send Welcome?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Needs DOI?": {
+      "main": [
+        [
+          {
+            "node": "8. Build DOI Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "12. Send Welcome?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Build DOI Email": {
+      "main": [
+        [
+          {
+            "node": "9. Send DOI Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Send DOI Email": {
+      "main": [
+        [
+          {
+            "node": "10. Log DOI Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Log DOI Message": {
+      "main": [
+        [
+          {
+            "node": "11. Log DOI Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11. Log DOI Event": {
+      "main": [
+        [
+          {
+            "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Send Welcome?": {
+      "main": [
+        [
+          {
+            "node": "13. Build Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13. Build Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "14. Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14. Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "15. Log Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15. Log Welcome Message": {
+      "main": [
+        [
+          {
+            "node": "16. Log Welcome Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "16. Log Welcome Event": {
+      "main": [
+        [
+          {
+            "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "5a2bd076f44d4c2f8a3d812a5ba07f2ad0a6d83655e272c41c8be9fcbf08f6f7"
+  }
+}
