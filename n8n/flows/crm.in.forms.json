@@ -510,7 +510,7 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-2576, 304],
+      "position": [-2304, 304],
       "id": "71334d55-4983-47ba-a3b2-ae467f302c97",
       "name": "Send a text message",
       "webhookId": "4aed2b64-9a3d-4b01-8a28-6bb4e82b21df",
@@ -536,7 +536,7 @@
       "name": "8a. Is Client Request?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [-2352, 304],
+      "position": [-2064, 304],
       "id": "58226aef-237b-4acd-a167-d2952fe9937b"
     },
     {
@@ -546,7 +546,7 @@
       "name": "[PREP] Build Subworkflow JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-2080, 288],
+      "position": [-1792, 288],
       "id": "76f36e1c-3596-43d0-9c71-49c528bc4599"
     },
     {
@@ -572,7 +572,7 @@
       "name": "[HOP] Trigger Dev Request Processor",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [-1856, 288],
+      "position": [-1568, 288],
       "id": "59b8b0dc-cf51-4d06-b257-fd2b0e36af18",
       "continueOnFail": true
     },
@@ -584,7 +584,7 @@
       "name": "7e. Build Telegram Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-2784, 304]
+      "position": [-2544, 304]
     },
     {
       "parameters": {
@@ -598,7 +598,7 @@
       "name": "8b. Log Non-client Intake",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-2080, 528],
+      "position": [-1792, 528],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -621,7 +621,7 @@
       "name": "8c. Dev Processor Failed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [-1600, 288]
+      "position": [-1312, 288]
     },
     {
       "parameters": {
@@ -635,7 +635,7 @@
       "name": "8d. Log Dev Processor Success",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-1376, 112],
+      "position": [-1088, 112],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -655,7 +655,7 @@
       "name": "8e. Log Dev Processor Error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-1376, 336],
+      "position": [-1088, 336],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -675,7 +675,7 @@
       "name": "8f. Alert Dev Processor Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-1152, 336],
+      "position": [-864, 336],
       "webhookId": "62becdb7-1486-43cc-bc59-c2afd549a169",
       "credentials": {
         "telegramApi": {
