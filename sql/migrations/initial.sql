@@ -548,10 +548,42 @@ Just checking in on my previous note—happy to share a short deck or jump on a 
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO templates (name, channel, subject_template, body_template) VALUES
-('dev_request.initial.en','email','Thanks for reaching out — 15‑min intro call?','Hi {{name}},\n\nGreat to hear from you. To put together an accurate estimate, could you share a short brief covering:\n• product or goal;\n• key features for the MVP;\n• desired timeline or priority;\n• budget range (PLN/EUR/USD).\n\nYou can pick a slot that works for you: {{calendly_url}}\n\nIf async is easier, just reply here — I''ll follow up from there.\n— {{from_name}}'),
-('dev_request.initial.ru','email','Спасибо за обращение — назначим 15‑мин созвон?','Привет, {{name}}!\n\nРады знакомству. Чтобы подготовить точную оценку, поделитесь, пожалуйста, коротким описанием:\n• продукт или цель;\n• ключевые функции MVP;\n• желаемые сроки или приоритет;\n• ориентировочный бюджет (PLN/EUR/USD).\n\nМожно сразу выбрать удобное время: {{calendly_url}}\n\nЕсли комфортнее переписка, просто ответьте на это письмо — всё подхвачу.\n— {{from_name}}'),
-('dev_request.followup1.en','email','Quick reminder to book a 15‑min intro','Hi {{name}},\n\nJust a gentle nudge. You can grab a slot here: {{calendly_url}}\n\nPrefer async? Send a brief and we''ll start an estimate.\n— {{from_name}}'),
-('dev_request.followup2.en','email','Still up for a quick intro?','Hi {{name}},\n\nLooks like there''s no slot yet. If relevant, pick any time: {{calendly_url}}\n\nOr reply with a brief — we''ll proceed async.\n— {{from_name}}')
+('dev_request.initial.en','email','Thanks for reaching out — 15‑min intro call?','Hi {{name}},
+
+Great to hear from you. To put together an accurate estimate, could you share a short brief covering:
+• product or goal;
+• key features for the MVP;
+• desired timeline or priority;
+• budget range (PLN/EUR/USD).
+
+You can pick a slot that works for you: {{calendly_url}}
+
+If async is easier, just reply here — I''ll follow up from there.
+— {{from_name}}'),
+('dev_request.initial.ru','email','Спасибо за обращение — назначим 15‑мин созвон?','Привет, {{name}}!
+
+Рады знакомству. Чтобы подготовить точную оценку, поделитесь, пожалуйста, коротким описанием:
+• продукт или цель;
+• ключевые функции MVP;
+• желаемые сроки или приоритет;
+• ориентировочный бюджет (PLN/EUR/USD).
+
+Можно сразу выбрать удобное время: {{calendly_url}}
+
+Если комфортнее переписка, просто ответьте на это письмо — всё подхвачу.
+— {{from_name}}'),
+('dev_request.followup1.en','email','Quick reminder to book a 15‑min intro','Hi {{name}},
+
+Just a gentle nudge. You can grab a slot here: {{calendly_url}}
+
+Prefer async? Send a brief and we''ll start an estimate.
+— {{from_name}}'),
+('dev_request.followup2.en','email','Still up for a quick intro?','Hi {{name}},
+
+Looks like there''s no slot yet. If relevant, pick any time: {{calendly_url}}
+
+Or reply with a brief — we''ll proceed async.
+— {{from_name}}')
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO tags (name) VALUES
