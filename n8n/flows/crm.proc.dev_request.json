@@ -179,7 +179,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rootText = typeof $json.text === 'string' ? $json.text : null;\nconst contentText = $json.content?.[0]?.text ?? null;\nconst text = rootText ?? contentText ?? '';\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start === -1 || end === -1) throw new Error('AI: no JSON found');\nconst jsonStr = text.slice(start, end + 1);\n\nconst clean = jsonStr.replace(/\\u0000/g, '');\nreturn [ JSON.parse(clean) ];"
+        "jsCode": "const config = $('0. Ctx & Config').item.json;\nconst fallback = $('1c-fallback. Load EN Template').item.json;\n\nif ($json.error) {\n  return [{\n    subject_template: fallback.subject_template,\n    body_template: fallback.body_template,\n    template_source: 'fallback_en',\n    template_lang: 'en',\n    translation_error: $json.error,\n    ai_errors: [],\n  }];\n}\n\nconst rootText = typeof $json.text === 'string' ? $json.text : null;\nconst contentText = $json.content?.[0]?.text ?? null;\nconst text = (rootText ?? contentText ?? '').trim();\n\nif (!text) {\n  return [{\n    subject_template: fallback.subject_template,\n    body_template: fallback.body_template,\n    template_source: 'fallback_en',\n    template_lang: 'en',\n    translation_error: { message: 'Empty response from translator' },\n    ai_errors: [],\n  }];\n}\n\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start === -1 || end === -1) {\n  return [{\n    subject_template: fallback.subject_template,\n    body_template: fallback.body_template,\n    template_source: 'fallback_en',\n    template_lang: 'en',\n    translation_error: { message: 'Translator returned no JSON object' },\n    ai_errors: [],\n  }];\n}\n\nconst jsonStr = text.slice(start, end + 1);\nlet parsed;\ntry {\n  parsed = JSON.parse(jsonStr);\n} catch (error) {\n  return [{\n    subject_template: fallback.subject_template,\n    body_template: fallback.body_template,\n    template_source: 'fallback_en',\n    template_lang: 'en',\n    translation_error: { message: error.message },\n    ai_errors: [],\n  }];\n}\n\nconst subject = parsed.subject || fallback.subject_template;\nconst body = parsed.body || fallback.body_template;\n\nreturn [{\n  subject_template: subject,\n  body_template: body,\n  template_source: 'ai_translation',\n  template_lang: config.lang || 'ru',\n  translation_error: null,\n  ai_errors: Array.isArray(parsed.ai_errors) ? parsed.ai_errors : [],\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -226,7 +226,8 @@
           "id": "GIfdwzVM7KrSSX07",
           "name": "Anthropic account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -243,6 +244,30 @@
               "name": "body_template",
               "value": "={{ $('1a. Load Template').item.json.body_template }}",
               "type": "string"
+            },
+            {
+              "id": "23318de4-eb9e-4cdb-a21a-19e009fa0690",
+              "name": "template_source",
+              "type": "string",
+              "value": "db_template"
+            },
+            {
+              "id": "21c2d39a-242a-47e1-95b4-d1e24241e567",
+              "name": "template_lang",
+              "type": "string",
+              "value": "={{ $('0. Ctx & Config').item.json.lang }}"
+            },
+            {
+              "id": "0557c2be-801a-433f-9d84-41c03c72423e",
+              "name": "translation_error",
+              "type": "string",
+              "value": "={{ null }}"
+            },
+            {
+              "id": "002dbf32-8c28-4f34-8001-73df1996572b",
+              "name": "ai_errors",
+              "type": "array",
+              "value": "={{ [] }}"
             }
           ]
         },
@@ -276,7 +301,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 1. Get data from sources\nconst config = $('0. Ctx & Config').item.json;\nconst template = $('2. Merge Template Branches').item.json;\n\n// 2. Safely get the subject and body, checking for both possible key names\nconst subjectText = template.subject_template || template.subject;\nconst bodyText = template.body_template || template.body;\n\n// Check if we actually have text to work with\nif (typeof subjectText !== 'string' || typeof bodyText !== 'string') {\n  throw new Error('Could not find subject or body text in the input from the Merge node.');\n}\n\n// 3. Prepare variables with fallbacks\nconst clientName = config.full_name || 'there';\nconst fromName = config.from_name || 'Team';\nconst calendlyUrl = config.calendly_base_url || '';\n\n// 4. Replace all placeholders\nlet finalSubject = subjectText.replace(/{{name}}/g, clientName);\n\nlet finalBody = bodyText\n  .replace(/{{name}}/g, clientName)\n  .replace(/{{calendly_url}}/g, calendlyUrl)\n  .replace(/{{from_name}}/g, fromName);\n\n// 5. Return all previous data, adding the final composed email text\nreturn [{\n  ...$item.json,\n  final_subject: finalSubject,\n  final_body: finalBody\n}];"
+        "jsCode": "const config = $('0. Ctx & Config').item.json;\nconst template = $('2. Merge Template Branches').item.json;\n\nconst subjectText = template.subject_template || template.subject;\nconst bodyText = template.body_template || template.body;\n\nif (typeof subjectText !== 'string' || typeof bodyText !== 'string') {\n  throw new Error('Could not find subject or body text in the template payload.');\n}\n\nconst clientName = config.full_name || 'there';\nconst fromName = config.from_name || 'Team';\nconst calendlyUrl = config.calendly_base_url || '';\n\nlet finalSubject = subjectText.replace(/{{name}}/g, clientName);\nlet finalBody = bodyText\n  .replace(/{{name}}/g, clientName)\n  .replace(/{{calendly_url}}/g, calendlyUrl)\n  .replace(/{{from_name}}/g, fromName);\n\nreturn [{\n  ...$item.json,\n  final_subject: finalSubject,\n  final_body: finalBody,\n  template_lang: template.template_lang || config.lang || 'ru',\n  template_source: template.template_source || 'db_template',\n  translation_error: template.translation_error || null,\n  template_ai_errors: template.ai_errors || [],\n}];"
       },
       "name": "2b. Compose Initial Reply",
       "type": "n8n-nodes-base.code",
@@ -324,14 +349,15 @@
           "id": "dRP6U59xFUhSEpp0",
           "name": "Gmail account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO messages (\n  conversation_id,\n  direction,\n  medium,\n  body,\n  external_message_id,\n  meta\n)\nVALUES (\n  $1,\n  'outbound',\n  'email',\n  $2,\n  $3,\n  $4::jsonb\n);",
         "options": {
-          "queryReplacement": "={{ [\n  $('0. Ctx & Config').item.json.conversation_id,\n  $('2b. Compose Initial Reply').item.json.final_body,\n  $('Send a message').item.json.id,\n  JSON.stringify({ subject: $('2b. Compose Initial Reply').item.json.final_subject })\n] }}"
+          "queryReplacement": "={{ [\n  $('0. Ctx & Config').item.json.conversation_id,\n  $('2b. Compose Initial Reply').item.json.final_body,\n  $('Send a message').item.json.id,\n  JSON.stringify({\n    subject: $('2b. Compose Initial Reply').item.json.final_subject,\n    kind: 'initial',\n    template_lang: $('2b. Compose Initial Reply').item.json.template_lang,\n    template_source: $('2b. Compose Initial Reply').item.json.template_source,\n    translation_error: $('2b. Compose Initial Reply').item.json.translation_error,\n    template_ai_errors: $('2b. Compose Initial Reply').item.json.template_ai_errors\n  })\n] }}"
         }
       },
       "name": "4b. Log Outbound Message",
@@ -455,7 +481,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: 'Напомню про звонок',\n    body: `Привет, {{name}}!\\n\\nВчера отправляли письмо с вопросами и ссылкой на календарь. Дайте знать, если удобно созвониться — можно сразу забронировать слот: {{calendly_url}}.\\n\\nЕсли нужен другой формат или время, просто ответьте на это письмо.\\n\\nСпасибо!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Quick follow-up about our call',\n    body: `Hi {{name}},\\n\\nYesterday we sent over a few scoping questions and a Calendly link. Happy to jump on a call whenever it suits you: {{calendly_url}}.\\n\\nIf another format or time works better, just hit reply — we'll adjust.\\n\\nThanks!\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Przypomnienie o rozmowie',\n    body: `Cześć {{name}}!\\n\\nWczoraj wysłaliśmy kilka pytań oraz link do kalendarza. Jeśli pasuje Ci rozmowa, zarezerwuj dogodny termin: {{calendly_url}}.\\n\\nGdyby lepsza była inna forma kontaktu lub godzina, odpisz proszę na tę wiadomość.\\n\\nDzięki!\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body)\n}];\n"
+        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: '\u041d\u0430\u043f\u043e\u043c\u043d\u044e \u043f\u0440\u043e \u0437\u0432\u043e\u043d\u043e\u043a',\n    body: `\u041f\u0440\u0438\u0432\u0435\u0442, {{name}}!\\n\\n\u0412\u0447\u0435\u0440\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u043b\u0438 \u043f\u0438\u0441\u044c\u043c\u043e \u0441 \u0432\u043e\u043f\u0440\u043e\u0441\u0430\u043c\u0438 \u0438 \u0441\u0441\u044b\u043b\u043a\u043e\u0439 \u043d\u0430 \u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u044c. \u0414\u0430\u0439\u0442\u0435 \u0437\u043d\u0430\u0442\u044c, \u0435\u0441\u043b\u0438 \u0443\u0434\u043e\u0431\u043d\u043e \u0441\u043e\u0437\u0432\u043e\u043d\u0438\u0442\u044c\u0441\u044f \u2014 \u043c\u043e\u0436\u043d\u043e \u0441\u0440\u0430\u0437\u0443 \u0437\u0430\u0431\u0440\u043e\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u043b\u043e\u0442: {{calendly_url}}.\\n\\n\u0415\u0441\u043b\u0438 \u043d\u0443\u0436\u0435\u043d \u0434\u0440\u0443\u0433\u043e\u0439 \u0444\u043e\u0440\u043c\u0430\u0442 \u0438\u043b\u0438 \u0432\u0440\u0435\u043c\u044f, \u043f\u0440\u043e\u0441\u0442\u043e \u043e\u0442\u0432\u0435\u0442\u044c\u0442\u0435 \u043d\u0430 \u044d\u0442\u043e \u043f\u0438\u0441\u044c\u043c\u043e.\\n\\n\u0421\u043f\u0430\u0441\u0438\u0431\u043e!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Quick follow-up about our call',\n    body: `Hi {{name}},\\n\\nYesterday we sent over a few scoping questions and a Calendly link. Happy to jump on a call whenever it suits you: {{calendly_url}}.\\n\\nIf another format or time works better, just hit reply \u2014 we'll adjust.\\n\\nThanks!\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Przypomnienie o rozmowie',\n    body: `Cze\u015b\u0107 {{name}}!\\n\\nWczoraj wys\u0142ali\u015bmy kilka pyta\u0144 oraz link do kalendarza. Je\u015bli pasuje Ci rozmowa, zarezerwuj dogodny termin: {{calendly_url}}.\\n\\nGdyby lepsza by\u0142a inna forma kontaktu lub godzina, odpisz prosz\u0119 na t\u0119 wiadomo\u015b\u0107.\\n\\nDzi\u0119ki!\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body),\n  followup_lang: lang\n}];\n"
       },
       "name": "5d. Compose Follow-up #1",
       "type": "n8n-nodes-base.code",
@@ -504,14 +530,15 @@
           "id": "dRP6U59xFUhSEpp0",
           "name": "Gmail account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, body, external_message_id, meta)\nVALUES ($1, 'outbound', 'email', $2, $3, $4::jsonb);",
         "options": {
-          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('5d. Compose Follow-up #1').item.json.followup_body, $('5f. Send Follow-up #1').item.json.id, JSON.stringify({ subject: $('5d. Compose Follow-up #1').item.json.followup_subject, kind: 'followup_1' }) ] }}"
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('5d. Compose Follow-up #1').item.json.followup_body, $('5f. Send Follow-up #1').item.json.id, JSON.stringify({ subject: $('5d. Compose Follow-up #1').item.json.followup_subject, kind: 'followup_1', template_lang: $('5d. Compose Follow-up #1').item.json.followup_lang }) ] }}"
         }
       },
       "name": "5g. Log Follow-up #1",
@@ -589,7 +616,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: 'Оставить заявку ещё актуально?',\n    body: `{{name}}, добрый день!\\n\\nХотим убедиться, что вы получили наши прошлые письма. Мы готовы подключиться и обсудить задачу — можно выбрать время тут: {{calendly_url}}.\\n\\nЕсли приоритеты поменялись, просто дайте знать, чтобы мы обновили статус.\\n\\nХорошего дня!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Should we keep the slot on hold?',\n    body: `Hi {{name}},\\n\\nChecking in in case the previous emails got lost. We can jump on a quick call whenever you're ready — here is the calendar again: {{calendly_url}}.\\n\\nIf plans changed, just let us know and we'll update our pipeline.\\n\\nAll the best,\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Czy rozmowa jest wciąż aktualna?',\n    body: `Cześć {{name}}!\\n\\nSprawdzamy, czy nasze poprzednie wiadomości dotarły. Chętnie porozmawiamy — możesz wybrać termin tutaj: {{calendly_url}}.\\n\\nJeśli priorytety się zmieniły, daj nam znać, zaktualizujemy status.\\n\\nPozdrawiam,\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body)\n}];\n"
+        "jsCode": "\nconst ctx = $('0. Ctx & Config').item.json;\nconst lang = ['ru','en','pl'].includes(ctx.lang) ? ctx.lang : 'ru';\nconst name = ctx.full_name || 'there';\nconst calendly = ctx.calendly_base_url || 'https://calendly.com/arsenii-ovsianykov-idealogic';\nconst fromName = ctx.from_name || 'Team';\n\nconst templates = {\n  ru: {\n    subject: '\u041e\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u0437\u0430\u044f\u0432\u043a\u0443 \u0435\u0449\u0451 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e?',\n    body: `{{name}}, \u0434\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c!\\n\\n\u0425\u043e\u0442\u0438\u043c \u0443\u0431\u0435\u0434\u0438\u0442\u044c\u0441\u044f, \u0447\u0442\u043e \u0432\u044b \u043f\u043e\u043b\u0443\u0447\u0438\u043b\u0438 \u043d\u0430\u0448\u0438 \u043f\u0440\u043e\u0448\u043b\u044b\u0435 \u043f\u0438\u0441\u044c\u043c\u0430. \u041c\u044b \u0433\u043e\u0442\u043e\u0432\u044b \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u0438 \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u044c \u0437\u0430\u0434\u0430\u0447\u0443 \u2014 \u043c\u043e\u0436\u043d\u043e \u0432\u044b\u0431\u0440\u0430\u0442\u044c \u0432\u0440\u0435\u043c\u044f \u0442\u0443\u0442: {{calendly_url}}.\\n\\n\u0415\u0441\u043b\u0438 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u044b \u043f\u043e\u043c\u0435\u043d\u044f\u043b\u0438\u0441\u044c, \u043f\u0440\u043e\u0441\u0442\u043e \u0434\u0430\u0439\u0442\u0435 \u0437\u043d\u0430\u0442\u044c, \u0447\u0442\u043e\u0431\u044b \u043c\u044b \u043e\u0431\u043d\u043e\u0432\u0438\u043b\u0438 \u0441\u0442\u0430\u0442\u0443\u0441.\\n\\n\u0425\u043e\u0440\u043e\u0448\u0435\u0433\u043e \u0434\u043d\u044f!\\n{{from_name}}`\n  },\n  en: {\n    subject: 'Should we keep the slot on hold?',\n    body: `Hi {{name}},\\n\\nChecking in in case the previous emails got lost. We can jump on a quick call whenever you're ready \u2014 here is the calendar again: {{calendly_url}}.\\n\\nIf plans changed, just let us know and we'll update our pipeline.\\n\\nAll the best,\\n{{from_name}}`\n  },\n  pl: {\n    subject: 'Czy rozmowa jest wci\u0105\u017c aktualna?',\n    body: `Cze\u015b\u0107 {{name}}!\\n\\nSprawdzamy, czy nasze poprzednie wiadomo\u015bci dotar\u0142y. Ch\u0119tnie porozmawiamy \u2014 mo\u017cesz wybra\u0107 termin tutaj: {{calendly_url}}.\\n\\nJe\u015bli priorytety si\u0119 zmieni\u0142y, daj nam zna\u0107, zaktualizujemy status.\\n\\nPozdrawiam,\\n{{from_name}}`\n  }\n};\n\nconst tpl = templates[lang];\nfunction apply(str){\n  return str\n    .replace(/{{name}}/g, name)\n    .replace(/{{calendly_url}}/g, calendly)\n    .replace(/{{from_name}}/g, fromName);\n}\n\nreturn [{\n  followup_subject: apply(tpl.subject),\n  followup_body: apply(tpl.body),\n  followup_lang: lang\n}];\n"
       },
       "name": "6d. Compose Follow-up #2",
       "type": "n8n-nodes-base.code",
@@ -638,14 +665,15 @@
           "id": "dRP6U59xFUhSEpp0",
           "name": "Gmail account"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, body, external_message_id, meta)\nVALUES ($1, 'outbound', 'email', $2, $3, $4::jsonb);",
         "options": {
-          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('6d. Compose Follow-up #2').item.json.followup_body, $('6f. Send Follow-up #2').item.json.id, JSON.stringify({ subject: $('6d. Compose Follow-up #2').item.json.followup_subject, kind: 'followup_2' }) ] }}"
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.conversation_id, $('6d. Compose Follow-up #2').item.json.followup_body, $('6f. Send Follow-up #2').item.json.id, JSON.stringify({ subject: $('6d. Compose Follow-up #2').item.json.followup_subject, kind: 'followup_2', template_lang: $('6d. Compose Follow-up #2').item.json.followup_lang }) ] }}"
         }
       },
       "name": "6g. Log Follow-up #2",
@@ -656,6 +684,381 @@
         -272
       ],
       "id": "485dc032-b5fe-4224-830d-8cdfc437cca9",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "1b98167f-fba5-4372-8437-4a938a5d602d",
+      "name": "4a. Initial Email Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2688,
+        -160
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9c609419-e190-429e-80c8-5f3cb17f193c",
+      "name": "4a. Log Initial Email Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2928,
+        -48
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_initial_email_failed', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, error: $json.error, template_lang: $('2b. Compose Initial Reply').item.json.template_lang, template_source: $('2b. Compose Initial Reply').item.json.template_source }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "7ef0de90-857f-44d3-986b-dc1a7cfb2831",
+      "name": "4a. Alert Initial Email Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3152,
+        -48
+      ],
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "\u274c Initial auto-reply failed for {{ $('0. Ctx & Config').item.json.email }}: {{ $json.error?.message || $json.error || 'Unknown error' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "id": "9bae45d7-774d-4259-afbe-d38255fd6a81",
+      "name": "4a. Stop Execution (Initial Email)",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        3376,
+        -48
+      ],
+      "parameters": {
+        "errorMessage": "Initial auto-reply failed"
+      }
+    },
+    {
+      "id": "fb8efd31-a5d5-4286-b9bd-6f0a9681e129",
+      "name": "4b. Pipeline Event: Initial Email",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2896,
+        -128
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_initial_email_sent', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, message_id: $('Send a message').item.json.id, template_lang: $('2b. Compose Initial Reply').item.json.template_lang, template_source: $('2b. Compose Initial Reply').item.json.template_source, translation_error: $('2b. Compose Initial Reply').item.json.translation_error, template_ai_errors: $('2b. Compose Initial Reply').item.json.template_ai_errors }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "6d0c918c-b4c9-4c0d-9728-591c0d9908f6",
+      "name": "4e. Pipeline Event: Lead Contacted",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3328,
+        -96
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'lead_stage_contacted', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "136a4209-e0dc-4410-adf7-b9ca7d8521ad",
+      "name": "5f. Follow-up #1 Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        4576,
+        -256
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "08f16100-cdaf-4000-ba6f-2168d67ba8c7",
+      "name": "5f. Log Follow-up #1 Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4816,
+        -176
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup1_failed', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, error: $json.error }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "cd687049-0799-4a5b-a5ce-0d74fb40d31e",
+      "name": "5f. Alert Follow-up #1 Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5040,
+        -176
+      ],
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "\u274c Follow-up #1 failed for {{ $('0. Ctx & Config').item.json.email }}: {{ $json.error?.message || $json.error || 'Unknown error' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "id": "c0477cec-69c2-4eb0-85c1-dc77a6b870ff",
+      "name": "5f. Stop Execution (FU1)",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        5264,
+        -176
+      ],
+      "parameters": {
+        "errorMessage": "Follow-up #1 email failed"
+      }
+    },
+    {
+      "id": "4d5fda12-ca1e-499b-9810-047f80be7cfa",
+      "name": "5g. Pipeline Event: Follow-up #1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4816,
+        -288
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup1_sent', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, message_id: $('5f. Send Follow-up #1').item.json.id, template_lang: $('5d. Compose Follow-up #1').item.json.followup_lang }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "46b316c4-443c-40c3-bf77-f4dc0fd0c61c",
+      "name": "5c. Pipeline Event: Skip FU#1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4128,
+        -32
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup1_skipped', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, reason: 'engaged_within_24h' }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "9d1228ba-cb0c-4aa0-a26c-524118e27f44",
+      "name": "6f. Follow-up #2 Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        5872,
+        -256
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e426053d-fdfa-4943-a7a6-bc63a2732621",
+      "name": "6f. Log Follow-up #2 Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6112,
+        -176
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup2_failed', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, error: $json.error }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "24531a5a-5194-40ab-a8bc-951c431e7ee2",
+      "name": "6f. Alert Follow-up #2 Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        6336,
+        -176
+      ],
+      "parameters": {
+        "chatId": "-1003017940130",
+        "text": "\u274c Follow-up #2 failed for {{ $('0. Ctx & Config').item.json.email }}: {{ $json.error?.message || $json.error || 'Unknown error' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "DIjzBhPLelPnkz7y",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "id": "d55253a5-1f71-424a-a120-b6d997c3bbff",
+      "name": "6f. Stop Execution (FU2)",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        6560,
+        -176
+      ],
+      "parameters": {
+        "errorMessage": "Follow-up #2 email failed"
+      }
+    },
+    {
+      "id": "58b5a0b6-6509-4ff0-a7c2-5a42dbec7afd",
+      "name": "6g. Pipeline Event: Follow-up #2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        6112,
+        -288
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup2_sent', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, message_id: $('6f. Send Follow-up #2').item.json.id, template_lang: $('6d. Compose Follow-up #2').item.json.followup_lang }) ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "405790d2-9f19-4395-8b44-eb03273ef019",
+      "name": "6c. Pipeline Event: Skip FU#2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        5408,
+        -32
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_followup2_skipped', $2::jsonb);",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Ctx & Config').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Ctx & Config').item.json.conversation_id, reason: 'engaged_within_72h' }) ] }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -808,7 +1211,7 @@
       "main": [
         [
           {
-            "node": "4b. Log Outbound Message",
+            "node": "4a. Initial Email Sent?",
             "type": "main",
             "index": 0
           }
@@ -819,7 +1222,7 @@
       "main": [
         [
           {
-            "node": "4c. Create Task: Follow-up",
+            "node": "4b. Pipeline Event: Initial Email",
             "type": "main",
             "index": 0
           }
@@ -841,7 +1244,7 @@
       "main": [
         [
           {
-            "node": "5a. Wait 24h Before Follow-up",
+            "node": "4e. Pipeline Event: Lead Contacted",
             "type": "main",
             "index": 0
           }
@@ -872,10 +1275,16 @@
     },
     "5c. Need Follow-up #1?": {
       "main": [
-        [],
         [
           {
             "node": "5d. Compose Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5c. Pipeline Event: Skip FU#1",
             "type": "main",
             "index": 0
           }
@@ -908,7 +1317,7 @@
       "main": [
         [
           {
-            "node": "5g. Log Follow-up #1",
+            "node": "5f. Follow-up #1 Sent?",
             "type": "main",
             "index": 0
           }
@@ -919,7 +1328,7 @@
       "main": [
         [
           {
-            "node": "6a. Wait 48h Before Follow-up",
+            "node": "5g. Pipeline Event: Follow-up #1",
             "type": "main",
             "index": 0
           }
@@ -950,10 +1359,16 @@
     },
     "6c. Need Follow-up #2?": {
       "main": [
-        [],
         [
           {
             "node": "6d. Compose Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "6c. Pipeline Event: Skip FU#2",
             "type": "main",
             "index": 0
           }
@@ -986,12 +1401,202 @@
       "main": [
         [
           {
-            "node": "6g. Log Follow-up #2",
+            "node": "6f. Follow-up #2 Sent?",
             "type": "main",
             "index": 0
           }
         ]
       ]
+    },
+    "4a. Initial Email Sent?": {
+      "main": [
+        [
+          {
+            "node": "4b. Log Outbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "4a. Log Initial Email Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Log Initial Email Error": {
+      "main": [
+        [
+          {
+            "node": "4a. Alert Initial Email Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Alert Initial Email Error": {
+      "main": [
+        [
+          {
+            "node": "4a. Stop Execution (Initial Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Stop Execution (Initial Email)": {
+      "main": []
+    },
+    "4b. Pipeline Event: Initial Email": {
+      "main": [
+        [
+          {
+            "node": "4c. Create Task: Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4e. Pipeline Event: Lead Contacted": {
+      "main": [
+        [
+          {
+            "node": "5a. Wait 24h Before Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5c. Pipeline Event: Skip FU#1": {
+      "main": [
+        [
+          {
+            "node": "6a. Wait 48h Before Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Follow-up #1 Sent?": {
+      "main": [
+        [
+          {
+            "node": "5g. Log Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5f. Log Follow-up #1 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Log Follow-up #1 Error": {
+      "main": [
+        [
+          {
+            "node": "5f. Alert Follow-up #1 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Alert Follow-up #1 Error": {
+      "main": [
+        [
+          {
+            "node": "5f. Stop Execution (FU1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Stop Execution (FU1)": {
+      "main": []
+    },
+    "5g. Pipeline Event: Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "6a. Wait 48h Before Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Pipeline Event: Skip FU#2": {
+      "main": []
+    },
+    "6f. Follow-up #2 Sent?": {
+      "main": [
+        [
+          {
+            "node": "6g. Log Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "6f. Log Follow-up #2 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f. Log Follow-up #2 Error": {
+      "main": [
+        [
+          {
+            "node": "6f. Alert Follow-up #2 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f. Alert Follow-up #2 Error": {
+      "main": [
+        [
+          {
+            "node": "6f. Stop Execution (FU2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f. Stop Execution (FU2)": {
+      "main": []
+    },
+    "6g. Log Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "6g. Pipeline Event: Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6g. Pipeline Event: Follow-up #2": {
+      "main": []
     }
   },
   "pinData": {},
