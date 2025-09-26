@@ -3,19 +3,19 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
+        "path": "355d6606cb2147d1b5a07ed0eb1cb4ef",
         "options": {}
       },
-      "name": "crm.in.forms",
+      "name": "hr.in.candidates",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
         -8400,
         0
       ],
-      "webhookId": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
+      "webhookId": "837acadc8f9e4159b8db8c91b1c3097b",
       "id": "cbbfe74c-ea8e-44db-bf19-c3d3c9a01f64",
-      "notes": "Trigger: Webhook (по формам dev_request, vacancy, newsletter)\n\nОжидает в заголовках:\nX-Resource (e.g., 'chain.do')\nX-Form-Code (e.g., 'dev_request')\n\nТело запроса (body) должно содержать email, full_name, message и другие поля формы."
+      "notes": "Trigger: Webhook (по HR-формам vacancy/hr_intake/hr_candidate)\n\nОжидает в заголовках:\nX-Resource (e.g., 'chain.do')\nX-Form-Code (e.g., 'vacancy')\n\nТело запроса (body) должно содержать email, full_name, message и дополнительные поля анкеты."
     },
     {
       "parameters": {
@@ -122,7 +122,7 @@
         320
       ],
       "id": "47bc4334-6e8c-4963-b04f-e4ea2ce07e0e",
-      "name": "Gmail Trigger",
+      "name": "Gmail Trigger (HR)",
       "credentials": {
         "gmailOAuth2": {
           "id": "dRP6U59xFUhSEpp0",
@@ -132,7 +132,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const isGmail = !!$json.threadId && !!$json.internalDate;\n\nfunction fromWebhook(j) {\n  const body = j.body || {};\n  const headers = j.headers || {};\n  return {\n    trigger: 'webhook',\n    source_code: headers['x-resource'] || 'chain_do', // fallback\n    form_code: headers['x-form-code'] || body.form_code || null,\n    subject: body.subject || `Form: ${headers['x-form-code'] || 'unknown'}`,\n    from_email: (body.email || '').toLowerCase().trim() || null,\n    from_name: body.full_name || null,\n    body_text: body.message || '',\n    body_html: body.message_html || null,\n    sent_at: new Date().toISOString(),\n    external_message_id: body.external_id || null,\n    attachments: body.attachments || [],\n    raw: j\n  };\n}\n\nfunction fromGmail(j) {\n  // Упрощенный парсинг поля \"From\", чтобы достать email и имя\n  const fromRaw = j.From || '';\n  const nameMatch = fromRaw.match(/^(.*)<.*>$/);\n  const emailMatch = fromRaw.match(/<(.*)>/);\n\n  const from_name = nameMatch ? nameMatch[1].trim() : (emailMatch ? '' : fromRaw);\n  const from_email = emailMatch ? emailMatch[1].toLowerCase().trim() : fromRaw.toLowerCase().trim();\n\n  return {\n    trigger: 'gmail',\n    source_code: 'email_inbox',\n    form_code: null,\n    subject: j.Subject || '(no subject)',\n    from_email: from_email || null,\n    from_name: from_name || null,\n    body_text: j.snippet || '', // Gmail Trigger по умолчанию дает только snippet. Для полного текста нужна доп. нода\n    body_html: null, // Аналогично, для HTML нужна доп. нода\n    sent_at: new Date(parseInt(j.internalDate, 10)).toISOString(),\n    external_message_id: j.id || null,\n    attachments: (j.attachments || []).map(a => ({ filename: a.filename, mime: a.mimeType, size: a.size })),\n    raw: j\n  };\n}\n\nconst env = isGmail ? fromGmail($json) : fromWebhook($json);\n\n// домен для компаний, если корпоративная почта\nenv.from_domain = (env.from_email && env.from_email.includes('@')) ? env.from_email.split('@')[1] : null;\n\nenv.ai_view = {\n  trigger: env.trigger,\n  source_code: env.source_code,\n  form_code: env.form_code,\n  subject: env.subject,\n  from_email: env.from_email,\n  from_name: env.from_name,\n  body_text: env.body_text,\n  body_html: env.body_html,\n  sent_at: env.sent_at,\n  external_message_id: env.external_message_id,\n  from_domain: env.from_domain,\n};\n\nreturn [env];"
+        "jsCode": "const isGmail = !!$json.threadId && !!$json.internalDate;\n\nfunction fromWebhook(j) {\n  const body = j.body || {};\n  const headers = j.headers || {};\n  return {\n    trigger: 'webhook',\n    source_code: headers['x-resource'] || 'chain_do', // fallback\n    form_code: headers['x-form-code'] || body.form_code || null,\n    subject: body.subject || `Form: ${headers['x-form-code'] || 'unknown'}`,\n    from_email: (body.email || '').toLowerCase().trim() || null,\n    from_name: body.full_name || null,\n    body_text: body.message || '',\n    body_html: body.message_html || null,\n    sent_at: new Date().toISOString(),\n    external_message_id: body.external_id || null,\n    attachments: body.attachments || [],\n    raw: j\n  };\n}\n\nfunction fromGmail(j) {\n  // Упрощенный парсинг поля \"From\", чтобы достать email и имя\n  const fromRaw = j.From || '';\n  const nameMatch = fromRaw.match(/^(.*)<.*>$/);\n  const emailMatch = fromRaw.match(/<(.*)>/);\n\n  const from_name = nameMatch ? nameMatch[1].trim() : (emailMatch ? '' : fromRaw);\n  const from_email = emailMatch ? emailMatch[1].toLowerCase().trim() : fromRaw.toLowerCase().trim();\n\n  return {\n    trigger: 'gmail',\n    source_code: 'email_inbox_hr',\n    form_code: null,\n    subject: j.Subject || '(no subject)',\n    from_email: from_email || null,\n    from_name: from_name || null,\n    body_text: j.snippet || '', // Gmail Trigger по умолчанию дает только snippet. Для полного текста нужна доп. нода\n    body_html: null, // Аналогично, для HTML нужна доп. нода\n    sent_at: new Date(parseInt(j.internalDate, 10)).toISOString(),\n    external_message_id: j.id || null,\n    attachments: (j.attachments || []).map(a => ({ filename: a.filename, mime: a.mimeType, size: a.size })),\n    raw: j\n  };\n}\n\nconst env = isGmail ? fromGmail($json) : fromWebhook($json);\n\n// домен для компаний, если корпоративная почта\nenv.from_domain = (env.from_email && env.from_email.includes('@')) ? env.from_email.split('@')[1] : null;\n\nenv.ai_view = {\n  trigger: env.trigger,\n  source_code: env.source_code,\n  form_code: env.form_code,\n  subject: env.subject,\n  from_email: env.from_email,\n  from_name: env.from_name,\n  body_text: env.body_text,\n  body_html: env.body_html,\n  sent_at: env.sent_at,\n  external_message_id: env.external_message_id,\n  from_domain: env.from_domain,\n};\n\nreturn [env];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -192,7 +192,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Node: 1d. Enforce Intake Policy (Code)\n\nconst env = $('0a. Build Envelope').item.json;  // конверт из 0a\nconst ai  = $json || {};                        // JSON из 1c\n\n// 0) Базовая форма классификации\nai.classification = ai.classification || { label: 'ham', intent: 'generic', confidence: 0 };\n\n// 1) Политика приёма: в этом пайплайне кандидатов быть не может\nconst ALLOWED_INTENTS = ['client','partner','newsletter'];   // допустимые intent'ы\nconst CLIENT_ONLY_SOURCES = ['chain_do','email_inbox'];      // какие источники считаем \"клиентскими\"\nconst CLIENT_ONLY_FORMS   = ['dev_request','consult_request','estimate_request']; // формы для клиентов\n\nconst isClientOnly =\n  (env.trigger === 'webhook' && env.form_code && CLIENT_ONLY_FORMS.includes(env.form_code)) ||\n  (env.trigger === 'gmail'   && CLIENT_ONLY_SOURCES.includes(env.source_code));\n\nconst intent = String(ai.classification.intent || 'generic').toLowerCase();\nif (isClientOnly && ai.classification.label === 'ham' && !ALLOWED_INTENTS.includes(intent)) {\n  // всё, что не client/partner/newsletter - считаем спамом в этом пайплайне\n  ai.classification.label = 'spam';\n  ai.classification.intent = 'generic';\n  ai.classification.confidence = Math.max(ai.classification.confidence || 0, 0.9);\n\n  const tag = intent === 'candidate'\n    ? 'candidate_on_client_intake'\n    : 'policy_violation_disallowed_intent';\n\n  ai.tags = Array.isArray(ai.tags) ? Array.from(new Set([...ai.tags, tag])) : [tag];\n}\n\n// 2) dedupe_key стабильно (без времени)\nconst email = (ai.contact?.email || env.from_email || '').toLowerCase().trim() || 'unknown';\nai.external = ai.external || {};\nai.external.message_id = ai.external.message_id || env.external_message_id || null;\nai.external.dedupe_key = `${email}:${env.source_code}`;\n\n// 3) subject/sent_at fallback\nai.message = ai.message || {};\nif (!ai.message.subject) ai.message.subject = env.subject || null;\nif (!ai.message.sent_at) ai.message.sent_at = new Date(env.sent_at || Date.now()).toISOString();\n\nreturn [ai];\n"
+        "jsCode": "// Node: 1d. Enforce Intake Policy (Code)\n\nconst env = $('0a. Build Envelope').item.json;\nconst ai  = $json || {};\n\nai.classification = ai.classification || { label: 'ham', intent: 'generic', confidence: 0 };\n\nconst ALLOWED_INTENTS = ['candidate'];\nconst CANDIDATE_FORMS = ['vacancy','hr_intake','hr_candidate'];\n\nconst intent = String(ai.classification.intent || 'generic').toLowerCase();\nconst formCode = (env.form_code || '').toLowerCase();\n\nconst isCandidateSource =\n  (env.trigger === 'webhook' && formCode && CANDIDATE_FORMS.includes(formCode)) ||\n  (env.trigger === 'gmail' && env.source_code === 'email_inbox_hr');\n\nif (isCandidateSource && ai.classification.label === 'ham' && !ALLOWED_INTENTS.includes(intent)) {\n  ai.classification.label = 'spam';\n  ai.classification.intent = 'generic';\n  ai.classification.confidence = Math.max(ai.classification.confidence || 0, 0.9);\n  ai.tags = Array.isArray(ai.tags) ? Array.from(new Set([...ai.tags, 'policy_violation_non_candidate'])) : ['policy_violation_non_candidate'];\n}\n\nconst email = (ai.contact?.email || env.from_email || '').toLowerCase().trim() || 'unknown';\nai.external = ai.external || {};\nai.external.message_id = ai.external.message_id || env.external_message_id || null;\nai.external.dedupe_key = `${email}:${env.source_code}`;\n\nai.message = ai.message || {};\nif (!ai.message.subject) ai.message.subject = env.subject || null;\nif (!ai.message.sent_at) ai.message.sent_at = new Date(env.sent_at || Date.now()).toISOString();\n\nreturn [ai];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -599,7 +599,7 @@
         304
       ],
       "id": "71334d55-4983-47ba-a3b2-ae467f302c97",
-      "name": "Send a text message",
+      "name": "Send a text message (HR)",
       "webhookId": "4aed2b64-9a3d-4b01-8a28-6bb4e82b21df",
       "credentials": {
         "telegramApi": {
@@ -611,70 +611,7 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $('1e. Validate & Shape').item.json.lead_intent }}",
-              "value2": "client"
-            }
-          ]
-        }
-      },
-      "name": "8a. Is Client Request?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        -2064,
-        304
-      ],
-      "id": "58226aef-237b-4acd-a167-d2952fe9937b"
-    },
-    {
-      "parameters": {
-        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst company = $('Merge company data').item.json;\nconst conversation = $('7a. Start Conversation').item.json;\nconst submission = $('2. Insert Submission').item.json;\n\nconst subworkflowData = {\n  lead_id: lead.lead_id,\n  contact_id: contact.contact_id,\n  company_id: company.company_id,\n  conversation_id: conversation.conversation_id,\n  message_id: $('7b. Insert First Message').item.json.message_id,\n  email: intake.email,\n  full_name: intake.full_name,\n  preferred_lang: intake.preferred_lang || 'ru',\n  timezone: intake.timezone,\n  lead_intent: intake.lead_intent,\n  classification_label: intake.classification?.label || null,\n  classification_confidence: intake.classification?.confidence ?? null,\n  sales_summary: intake.sales_summary,\n  dedupe_key: intake.dedupe_key,\n  source_code: intake.source_code,\n  form_code: intake.form_code,\n  submission_id: submission.submission_id,\n  ai_errors: intake.ai_errors || [],\n  intake_flags: intake.intake_flags || [],\n  ai_raw_text: intake.ai_raw_text,\n};\n\nreturn [subworkflowData];"
-      },
-      "name": "[PREP] Build Subworkflow JSON",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1792,
-        288
-      ],
-      "id": "76f36e1c-3596-43d0-9c71-49c528bc4599"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "DbI3spLHIvAdKew2",
-          "mode": "list",
-          "cachedResultName": "1.1 Дальнейший диалог по заявке на разработку/консультацию"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "name": "[HOP] Trigger Dev Request Processor",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -1568,
-        288
-      ],
-      "id": "59b8b0dc-cf51-4d06-b257-fd2b0e36af18",
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst company = $('Merge company data').item.json;\n\nconst flags = new Set(intake.intake_flags || []);\nconst aiErrors = Array.isArray(intake.ai_errors) ? intake.ai_errors.filter(Boolean) : [];\nif (aiErrors.length) {\n  flags.add('ai_warning');\n}\n\nconst summary = intake.sales_summary || (intake.message ? `${intake.message.slice(0, 200)}${intake.message.length > 200 ? '…' : ''}` : 'Нет короткого резюме — проверьте диалог.');\nconst lines = [];\nlines.push('🚀 Новый лид: запрос на разработку / консультацию');\nlines.push(`Lead ID: ${lead.lead_id}`);\nlines.push(`Contact: ${(contact.full_name || intake.full_name || '—')} <${intake.email}>`);\nif (company.company_id) {\n  lines.push(`Company: ${(company.company_name || '—')} (${company.company_website || 'нет сайта'})`);\n}\nlines.push(`Intent: ${intake.lead_intent} | Classification: ${(intake.classification?.label || 'n/a')}`);\nlines.push('—');\nlines.push(summary);\n\nif (flags.size) {\n  lines.push('—');\n  lines.push(`⚠️ Flags: ${Array.from(flags).join(', ')}`);\n}\nif (aiErrors.length) {\n  const preview = aiErrors.map(e => e?.code || 'error').join(', ');\n  lines.push(`⚠️ AI warnings: ${preview}`);\n}\n\nreturn [{ text: lines.join('\\n') }];"
+        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst summary = intake.sales_summary || (intake.message ? `${intake.message.slice(0, 200)}${intake.message.length > 200 ? '…' : ''}` : 'Нет короткого резюме — проверьте диалог.');\n\nconst flags = new Set(intake.intake_flags || []);\nconst aiErrors = Array.isArray(intake.ai_errors) ? intake.ai_errors.filter(Boolean) : [];\nif (aiErrors.length) {\n  flags.add('ai_warning');\n}\n\nconst lines = [];\nlines.push('👤 Новый кандидат откликнулся на вакансию');\nlines.push(`Lead ID: ${lead.lead_id}`);\nlines.push(`Candidate: ${(contact.full_name || intake.full_name || '—')} <${intake.email}>`);\nlines.push(`Intent: ${intake.lead_intent} | Classification: ${(intake.classification?.label || 'n/a')}`);\nlines.push('—');\nlines.push(summary);\n\nif (flags.size) {\n  lines.push('—');\n  lines.push(`⚠️ Flags: ${Array.from(flags).join(', ')}`);\n}\nif (aiErrors.length) {\n  const preview = aiErrors.map(e => e?.code || 'error').join(', ');\n  lines.push(`⚠️ AI warnings: ${preview}`);\n}\n\nreturn [{ text: lines.join('\\n') }];"
       },
       "id": "ace7f031-9fd4-48be-8da8-b6a8b17fa489",
       "name": "7e. Build Telegram Payload",
@@ -688,13 +625,13 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'intake_routed_non_client', $2::jsonb);",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'intake_routed_non_candidate', $2::jsonb);",
         "options": {
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ lead_intent: $('1e. Validate & Shape').item.json.lead_intent, classification_label: $('1e. Validate & Shape').item.json.classification.label, intake_flags: $('1e. Validate & Shape').item.json.intake_flags, ai_errors: $('1e. Validate & Shape').item.json.ai_errors, source_code: $('0a. Build Envelope').item.json.source_code, form_code: $('0a. Build Envelope').item.json.form_code }) ] }}"
         }
       },
       "id": "c55c5ea3-2a05-47e3-b804-178cfbdbb1b3",
-      "name": "8b. Log Non-client Intake",
+      "name": "8f. Log Non-candidate Intake",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -713,37 +650,107 @@
         "conditions": {
           "string": [
             {
+              "value1": "={{ $('1e. Validate & Shape').item.json.lead_intent }}",
+              "operation": "isEqual",
+              "value2": "candidate"
+            },
+            {
+              "value1": "={{ $('1e. Validate & Shape').item.json.form_code }}",
+              "operation": "isEqual",
+              "value2": "vacancy"
+            }
+          ],
+          "combineOperation": "any"
+        }
+      },
+      "name": "8a. Is Candidate Intent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2064,
+        528
+      ],
+      "id": "9c2f6ed5-0be3-47cc-887c-ecb08dcec2d6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\\nconst lead = $('6. Upsert Lead').item.json;\\nconst contact = $('5. Merge Contact Result').item.json;\\nconst company = $('Merge company data').item.json;\\nconst conversation = $('7a. Start Conversation').item.json;\\nconst submission = $('2. Insert Submission').item.json;\\n\\nreturn [{\\n  lead_id: lead.lead_id,\\n  contact_id: contact.contact_id,\\n  company_id: company.company_id,\\n  conversation_id: conversation.conversation_id,\\n  message_id: $('7b. Insert First Message').item.json.message_id,\\n  email: intake.email,\\n  full_name: intake.full_name,\\n  preferred_lang: intake.preferred_lang || 'ru',\\n  timezone: intake.timezone,\\n  lead_intent: intake.lead_intent,\\n  classification_label: intake.classification?.label || null,\\n  classification_confidence: intake.classification?.confidence ?? null,\\n  sales_summary: intake.sales_summary,\\n  dedupe_key: intake.dedupe_key,\\n  source_code: intake.source_code,\\n  form_code: intake.form_code,\\n  submission_id: submission.submission_id,\\n  ai_errors: intake.ai_errors || [],\\n  intake_flags: intake.intake_flags || [],\\n  ai_raw_text: intake.ai_raw_text,\\n  candidate_profile: intake.candidate_profile || {},\\n  candidate_pool_targets: intake.candidate_pool_targets || []\\n}];"
+      },
+      "name": "[PREP] Build Candidate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        528
+      ],
+      "id": "106a6283-703e-414c-8293-d4a13e2c3e4e"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Sy8lqNu5VacHR12a",
+          "mode": "list",
+          "cachedResultName": "1.2 Автоматизация отклика на вакансию"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "name": "[HOP] Trigger Vacancy Processor",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1568,
+        528
+      ],
+      "id": "06b3aa78-79b7-48a6-8808-7601e3abe617",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
               "value1": "={{ $json.error }}",
               "operation": "isEmpty"
             }
           ]
         }
       },
-      "id": "c59de462-3c88-47f7-89b8-fea09a68a17c",
-      "name": "8c. Dev Processor Failed?",
+      "name": "8b. Vacancy Processor Succeeded?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
         -1312,
-        288
-      ]
+        528
+      ],
+      "id": "1c810048-bb81-4364-96b9-e83ea72f2522"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_processor_triggered', $2::jsonb);",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_processor_triggered', $2::jsonb);",
         "options": {
-          "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ conversation_id: $('7a. Start Conversation').item.json.conversation_id, workflow_execution_id: $json.executionId ?? null, lead_intent: $('1e. Validate & Shape').item.json.lead_intent, intake_flags: $('1e. Validate & Shape').item.json.intake_flags }) ] }}"
+          "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ conversation_id: $('7a. Start Conversation').item.json.conversation_id, workflow_execution_id: $json.executionId ?? null, candidate_profile_id: $json.candidate_profile_id ?? null, lead_intent: $('1e. Validate & Shape').item.json.lead_intent, intake_flags: $('1e. Validate & Shape').item.json.intake_flags }) ] }}"
         }
       },
-      "id": "b53be87e-d6d5-446e-bf74-8a7912c1cc66",
-      "name": "8d. Log Dev Processor Success",
+      "name": "8c. Log Vacancy Processor Success",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
         -1088,
-        112
+        432
       ],
+      "id": "4359dc0d-90be-46d0-a695-a5a958c9f8b1",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -754,19 +761,19 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_processor_failed', $2::jsonb);",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_processor_failed', $2::jsonb);",
         "options": {
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ conversation_id: $('7a. Start Conversation').item.json.conversation_id, workflow_execution_id: $json.executionId ?? null, error: $json.error, lead_intent: $('1e. Validate & Shape').item.json.lead_intent, intake_flags: $('1e. Validate & Shape').item.json.intake_flags }) ] }}"
         }
       },
-      "id": "5594b334-7914-4328-93c6-d12aa3c27bc9",
-      "name": "8e. Log Dev Processor Error",
+      "name": "8d. Log Vacancy Processor Error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
         -1088,
-        336
+        624
       ],
+      "id": "d87de581-5adf-434b-a85b-f9834452e288",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -777,20 +784,20 @@
     {
       "parameters": {
         "chatId": "-1003017940130",
-        "text": "🔥 Ошибка подпроцесса dev_request: {{ $('1e. Validate & Shape').item.json.email }}\n\n{{ $json.error?.message || $json.error || 'Unknown error' }}",
+        "text": "=🔥 Ошибка подпроцесса vacancy_processor: {{ $('1e. Validate & Shape').item.json.email }}\\n\n{{ $json.error?.message || $json.error || 'Unknown error' }}",
         "additionalFields": {
           "appendAttribution": false
         }
       },
-      "id": "bc391bdf-5110-482f-b7d9-f0c7510feb4b",
-      "name": "8f. Alert Dev Processor Error",
+      "name": "8e. Alert Vacancy Processor Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
         -864,
-        336
+        624
       ],
-      "webhookId": "62becdb7-1486-43cc-bc59-c2afd549a169",
+      "id": "01889aa0-6d18-4dfe-9c43-c065d2a268c9",
+      "webhookId": "af5b0b52-144b-49d5-ac82-836cefbf532f",
       "credentials": {
         "telegramApi": {
           "id": "DIjzBhPLelPnkz7y",
@@ -800,17 +807,6 @@
     }
   ],
   "connections": {
-    "crm.in.forms": {
-      "main": [
-        [
-          {
-            "node": "0a. Build Envelope",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "4. Is Spam?": {
       "main": [
         [
@@ -845,17 +841,6 @@
         [
           {
             "node": "3b. Insert Classification",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Gmail Trigger": {
-      "main": [
-        [
-          {
-            "node": "0a. Build Envelope",
             "type": "main",
             "index": 0
           }
@@ -1119,101 +1104,117 @@
         ]
       ]
     },
-    "Send a text message": {
-      "main": [
-        [
-          {
-            "node": "8a. Is Client Request?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "8a. Is Client Request?": {
-      "main": [
-        [
-          {
-            "node": "[PREP] Build Subworkflow JSON",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "8b. Log Non-client Intake",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "[PREP] Build Subworkflow JSON": {
-      "main": [
-        [
-          {
-            "node": "[HOP] Trigger Dev Request Processor",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "[HOP] Trigger Dev Request Processor": {
-      "main": [
-        [
-          {
-            "node": "8c. Dev Processor Failed?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "7e. Build Telegram Payload": {
       "main": [
         [
           {
-            "node": "Send a text message",
+            "node": "Send a text message (HR)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "8c. Dev Processor Failed?": {
+    "hr.in.candidates": {
       "main": [
         [
           {
-            "node": "8d. Log Dev Processor Success",
+            "node": "0a. Build Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8a. Is Candidate Intent?": {
+      "main": [
+        [
+          {
+            "node": "[PREP] Build Candidate Payload",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "8e. Log Dev Processor Error",
+            "node": "8f. Log Non-candidate Intake",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "8e. Log Dev Processor Error": {
+    "[PREP] Build Candidate Payload": {
       "main": [
         [
           {
-            "node": "8f. Alert Dev Processor Error",
+            "node": "[HOP] Trigger Vacancy Processor",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "[HOP] Trigger Vacancy Processor": {
+      "main": [
+        [
+          {
+            "node": "8b. Vacancy Processor Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8b. Vacancy Processor Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "8c. Log Vacancy Processor Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "8d. Log Vacancy Processor Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8d. Log Vacancy Processor Error": {
+      "main": [
+        [
+          {
+            "node": "8e. Alert Vacancy Processor Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger (HR)": {
+      "main": [
+        [
+          {
+            "node": "0a. Build Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message (HR)": {
+      "main": [
+        []
       ]
     }
   },
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
+    "instanceId": "d9b4613eb5424e94bdb5b0783bcc8fa6"
   }
 }
