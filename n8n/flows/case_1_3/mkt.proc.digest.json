@@ -6,27 +6,21 @@
           "interval": [
             {
               "field": "weeks",
-              "every": 1
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
             }
-          ],
-          "offset": {
-            "hours": 9
-          }
+          ]
         }
       },
       "name": "[START] Weekly Digest",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [
-        -1880,
-        80
-      ],
-      "id": "ff758f67-6d08-484a-9885-72dee2ad177d"
+      "position": [-336, 576],
+      "id": "9b46d0c9-eabe-483d-9f10-fd5b661358df"
     },
     {
       "parameters": {
         "url": "={{ $env.DIGEST_FEED_URL || 'https://example.com/api/digest' }}",
-        "responseFormat": "json",
         "options": {
           "timeout": 60
         }
@@ -34,11 +28,8 @@
       "name": "1. Fetch Digest Feed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 2,
-      "position": [
-        -1600,
-        80
-      ],
-      "id": "761342ac-eae1-4e79-8b9a-3257409ca820"
+      "position": [-64, 576],
+      "id": "3cad0e78-53f9-4a36-a5bb-8a45e3eab10a"
     },
     {
       "parameters": {
@@ -47,11 +38,8 @@
       "name": "2. Normalize Feed",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        -1340,
-        80
-      ],
-      "id": "0228afcd-9d14-4b71-af15-80be2a7f0add"
+      "position": [208, 576],
+      "id": "3ae67632-d154-43bc-bf64-2933cb0b092e"
     },
     {
       "parameters": {
@@ -67,57 +55,39 @@
               "rightValue": 0
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "3. Has Content?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -1100,
-        80
-      ],
-      "id": "da686fed-e4a6-4a44-b3b6-1c785fac7e21"
+      "position": [448, 576],
+      "id": "7c0003ab-695c-4fa8-903c-3b952b671b82"
     },
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "skipped"
-            },
-            {
-              "fieldId": "reason",
-              "fieldValue": "no_content"
-            }
-          ]
+          "values": [{}, {}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "3a. Outcome: No Content",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        -900,
-        -120
-      ],
-      "id": "69ee7a28-1c67-4d0f-92f1-b66c1777df21"
+      "position": [640, 368],
+      "id": "bcbdaa2d-8c57-4e2a-9340-d77a8875871b"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ready AS (\n  SELECT COUNT(*) AS cnt\n  FROM newsletter_subscribers ns\n  WHERE ns.status = 'subscribed'\n    AND ns.unsubscribed_at IS NULL\n    AND ns.confirmed_at IS NOT NULL\n    AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days')\n)\nSELECT COALESCE((SELECT cnt FROM ready), 0)::int AS ready_count;"
+        "query": "WITH ready AS (\n  SELECT COUNT(*) AS cnt\n  FROM newsletter_subscribers ns\n  WHERE ns.status = 'subscribed'\n    AND ns.unsubscribed_at IS NULL\n    AND ns.confirmed_at IS NOT NULL\n    AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days')\n)\nSELECT COALESCE((SELECT cnt FROM ready), 0)::int AS ready_count;",
+        "options": {}
       },
       "name": "4. Count Recipients",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -900,
-        200
-      ],
-      "id": "d387e32d-2bbd-4da6-8c6d-9d8b7e55a1f4",
+      "position": [640, 688],
+      "id": "2d669a87-5bfa-4241-a6a5-c21cee963954",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -139,57 +109,39 @@
               "rightValue": 0
             }
           ]
-        }
+        },
+        "options": {}
       },
       "name": "5. Has Recipients?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -660,
-        200
-      ],
-      "id": "a0c5a8a5-7861-4f1a-b52f-4b43f8525b9c"
+      "position": [880, 688],
+      "id": "dce67809-f890-45b8-872a-1481e8ddb033"
     },
     {
       "parameters": {
         "fields": {
-          "values": [
-            {
-              "fieldId": "status",
-              "fieldValue": "skipped"
-            },
-            {
-              "fieldId": "reason",
-              "fieldValue": "no_recipients"
-            }
-          ]
+          "values": [{}, {}]
         },
-        "options": {
-          "keepOnlySet": true
-        }
+        "options": {}
       },
       "name": "5a. Outcome: No Recipients",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [
-        -460,
-        -40
-      ],
-      "id": "cdb26ff9-5d60-4f3b-bbb2-7b5116d2f3b1"
+      "position": [1088, 448],
+      "id": "23eee817-dd85-4fc4-a537-e3e9e507289b"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  ns.id AS subscriber_id,\n  ns.contact_id,\n  ns.unsubscribe_token,\n  ns.last_sent_at,\n  ns.confirmed_at,\n  c.email,\n  c.full_name,\n  COALESCE(NULLIF(c.preferred_lang, ''), 'ru') AS preferred_lang\nFROM newsletter_subscribers ns\nJOIN contacts c ON c.id = ns.contact_id\nWHERE ns.status = 'subscribed'\n  AND ns.unsubscribed_at IS NULL\n  AND ns.confirmed_at IS NOT NULL\n  AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days');"
+        "query": "SELECT\n  ns.id AS subscriber_id,\n  ns.contact_id,\n  ns.unsubscribe_token,\n  ns.last_sent_at,\n  ns.confirmed_at,\n  c.email,\n  c.full_name,\n  COALESCE(NULLIF(c.preferred_lang, ''), 'ru') AS preferred_lang\nFROM newsletter_subscribers ns\nJOIN contacts c ON c.id = ns.contact_id\nWHERE ns.status = 'subscribed'\n  AND ns.unsubscribed_at IS NULL\n  AND ns.confirmed_at IS NOT NULL\n  AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days');",
+        "options": {}
       },
       "name": "6. Load Subscribers",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -420,
-        320
-      ],
-      "id": "31ea4ec9-4bbf-46d7-9e05-9d0bc936560e",
+      "position": [1120, 816],
+      "id": "d743bc21-6182-478b-9dc0-7eb30173f7ad",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -199,16 +151,14 @@
     },
     {
       "parameters": {
-        "batchSize": 1
+        "batchSize": 1,
+        "options": {}
       },
       "name": "7. Split Subscribers",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 1,
-      "position": [
-        -160,
-        320
-      ],
-      "id": "e7b63498-2b98-4a87-b18f-3c3df6e0d5de"
+      "position": [1392, 816],
+      "id": "58cf567d-e7a1-45da-8a8e-b235bf8ed791"
     },
     {
       "parameters": {
@@ -217,37 +167,20 @@
       "name": "8. Prepare Digest Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        80,
-        320
-      ],
-      "id": "3a3284b2-3a97-4fa0-a4fd-0c9c25bd78be"
+      "position": [1632, 816],
+      "id": "5ce4a361-1de6-4557-ae54-9ebfc9e5c940"
     },
     {
       "parameters": {
         "resource": "message",
-        "operation": "send",
-        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
-        "toEmail": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "text": "={{ $json.body_text }}",
-        "html": "={{ $json.body_html }}",
-        "options": {}
+        "additionalFields": {}
       },
       "name": "9. Send Digest Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 1,
-      "position": [
-        320,
-        320
-      ],
-      "id": "ab7d3d42-69d8-4767-8ac5-32fbcb5a993a",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "WQjBT9KV8K1F6bNi",
-          "name": "Gmail OAuth"
-        }
-      }
+      "position": [1872, 816],
+      "id": "da3babeb-a31a-4b52-b0d4-4bfb7612d385"
     },
     {
       "parameters": {
@@ -260,11 +193,8 @@
       "name": "10. Log Digest Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        560,
-        320
-      ],
-      "id": "b181ab98-8a0c-4d55-8db6-4748fd63243f",
+      "position": [2112, 816],
+      "id": "a51eb672-a0b7-49b9-b121-021f500415a8",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -283,11 +213,8 @@
       "name": "11. Update Last Sent",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        800,
-        320
-      ],
-      "id": "d6ad3ed1-daf3-48e2-812d-622876dd96f8",
+      "position": [2352, 816],
+      "id": "3004ab04-3b60-42fd-9fa7-2b8afe53fec5",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -306,11 +233,8 @@
       "name": "12. Log Digest Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1040,
-        320
-      ],
-      "id": "f47ec7aa-55bc-4fa3-9e35-cc560a03c6c1",
+      "position": [2592, 816],
+      "id": "1422d1ab-d4bb-48d4-8492-91dfaa59a667",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -326,11 +250,9 @@
       "name": "13. Rate Limit Wait",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [
-        1280,
-        320
-      ],
-      "id": "a83f61f3-a5a7-457f-9a2e-8b4f06943029"
+      "position": [2832, 816],
+      "id": "37f9aa19-0340-441a-aaa5-6786d7c1c59a",
+      "webhookId": "195ccbcd-9e8b-440b-8cb3-2bb33da76c05"
     },
     {
       "parameters": {
@@ -339,11 +261,8 @@
       "name": "14. Outcome: Summary",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        200,
-        560
-      ],
-      "id": "d5a2b4e7-76e0-493d-8d43-7f3d8f5c92a3"
+      "position": [1744, 1056],
+      "id": "80e97f17-c72e-4113-a280-e687f1ee4904"
     },
     {
       "parameters": {
@@ -352,11 +271,8 @@
       "name": "15. Return Digest Result",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        480,
-        520
-      ],
-      "id": "bb6c7d17-98fc-4cb2-9d67-f499521ea474"
+      "position": [2032, 1008],
+      "id": "fb648884-68bc-42e5-b2e7-d7002656c264"
     }
   ],
   "connections": {
@@ -400,11 +316,7 @@
             "node": "4. Count Recipients",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "3a. Outcome: No Content",
             "type": "main",
@@ -442,11 +354,7 @@
             "node": "6. Load Subscribers",
             "type": "main",
             "index": 0
-          }
-        ]
-      ],
-      "false": [
-        [
+          },
           {
             "node": "5a. Outcome: No Recipients",
             "type": "main",
@@ -482,13 +390,6 @@
         [
           {
             "node": "8. Prepare Digest Email",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "14. Outcome: Summary",
             "type": "main",
             "index": 0
           }
@@ -575,6 +476,7 @@
   },
   "pinData": {},
   "meta": {
-    "instanceId": "c4d63b018e45431683a599c779e075a93a6f68a2c9a6f4d0425eb613a5dfbc76"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "69871f35b6454f2fa99c2f68403092fbaef8d3b776d3b26f1ec8ca290a75b807"
   }
 }
