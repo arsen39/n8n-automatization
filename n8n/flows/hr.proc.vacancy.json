@@ -1,0 +1,1169 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "[START] hr.proc.vacancy",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -9600,
+        0
+      ],
+      "id": "d318dece-8cbc-46f4-8a3e-1cecd9d6fa61"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\n\nif (!input.lead_id) {\n  throw new Error('lead_id is required');\n}\nif (!input.contact_id) {\n  throw new Error('contact_id is required');\n}\n\nfunction toNumber(value) {\n  if (value === null || value === undefined) return null;\n  const num = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));\n  return Number.isFinite(num) ? Number(num) : null;\n}\n\nfunction titleCase(value) {\n  if (!value) return null;\n  return value\n    .toString()\n    .split(/\\s|_|-/)\n    .map((part) => part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : '')\n    .filter(Boolean)\n    .join(' ');\n}\n\nfunction normUrl(u) {\n  if (!u) return null;\n  try {\n    const candidate = u.startsWith('http://') || u.startsWith('https://') ? u : `https://${u}`;\n    return new URL(candidate).toString();\n  } catch (error) {\n    return null;\n  }\n}\n\nconst rawProfile = input.candidate_profile || {};\nconst rawSkills = Array.isArray(rawProfile.skills) ? rawProfile.skills : [];\nconst skills = rawSkills\n  .map((skill) => typeof skill === 'string' ? skill.trim() : null)\n  .filter(Boolean)\n  .map((skill) => titleCase(skill));\nconst experienceYears = toNumber(rawProfile.experience_years);\nlet rateCurrency = typeof rawProfile.rate_currency === 'string'\n  ? rawProfile.rate_currency.trim().toUpperCase()\n  : null;\nconst allowedCurrencies = new Set(['USD', 'EUR', 'PLN']);\nif (!rateCurrency || !allowedCurrencies.has(rateCurrency)) {\n  rateCurrency = null;\n}\nconst allowedPeriods = new Set(['hourly', 'daily', 'monthly']);\nconst ratePeriod = typeof rawProfile.rate_period === 'string' && allowedPeriods.has(rawProfile.rate_period)\n  ? rawProfile.rate_period\n  : 'hourly';\nconst allowedAvailability = new Set(['available_now', 'part_time', 'notice_period', 'unavailable']);\nlet availability = typeof rawProfile.availability === 'string'\n  ? rawProfile.availability\n  : null;\nif (!availability || !allowedAvailability.has(availability)) {\n  availability = 'notice_period';\n}\n\nconst candidateProfile = {\n  cv_url: normUrl(rawProfile.cv_url || null),\n  skills,\n  experience_years: experienceYears,\n  location: rawProfile.location ? rawProfile.location.toString().trim() : null,\n  rate_currency: rateCurrency,\n  rate_min: toNumber(rawProfile.rate_min),\n  rate_max: toNumber(rawProfile.rate_max),\n  rate_period: ratePeriod,\n  availability,\n};\n\nconst seniority = experienceYears !== null\n  ? (experienceYears >= 5 ? 'Senior' : experienceYears >= 2 ? 'Middle' : 'Junior')\n  : 'Middle';\nconst defaultStatus = availability === 'available_now' ? 'active' : 'prospect';\n\nconst poolTargetsRaw = Array.isArray(input.candidate_pool_targets) ? input.candidate_pool_targets : [];\nconst poolTargets = poolTargetsRaw\n  .map((target) => {\n    if (!target) return null;\n    const name = typeof target.name === 'string' ? target.name.trim() : null;\n    if (!name) return null;\n    const status = typeof target.status === 'string' && ['active','prospect'].includes(target.status)\n      ? target.status\n      : defaultStatus;\n    return { name, status };\n  })\n  .filter(Boolean);\n\nif (!poolTargets.length) {\n  poolTargets.push({\n    name: `${seniority} Talent Pool`,\n    status: defaultStatus,\n  });\n}\n\nconst lang = (input.preferred_lang || '').toLowerCase();\nconst supportedLangs = new Set(['ru', 'en', 'pl']);\nconst preferredLang = supportedLangs.has(lang) ? lang : 'ru';\n\nconst ndaExternalId = input.nda_external_id || `nda-${input.lead_id}`;\nconst ndaUrl = input.nda_url || `https://chain.do/doc/${ndaExternalId}`;\n\nreturn [{\n  lead_id: input.lead_id,\n  contact_id: input.contact_id,\n  conversation_id: input.conversation_id || null,\n  message_id: input.message_id || null,\n  email: input.email,\n  full_name: input.full_name || 'Candidate',\n  preferred_lang: preferredLang,\n  timezone: input.timezone || 'Europe/Warsaw',\n  source_code: input.source_code || null,\n  form_code: input.form_code || null,\n  submission_id: input.submission_id || null,\n  candidate_profile: candidateProfile,\n  pool_targets: poolTargets,\n  nda_external_id: ndaExternalId,\n  nda_url: ndaUrl,\n  human_delay_minutes: Math.floor(Math.random() * 6) + 4,\n  followup1_delay_days: 5,\n  followup2_delay_days: 7,\n  final_delay_days: 7\n}];"
+      },
+      "name": "0. Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9360,
+        0
+      ],
+      "id": "558cb4fd-76fc-4b89-8c0e-17cd7776d3b5"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads\\nSET stage = CASE\\n      WHEN stage IN ('in_pool','won','lost') THEN stage\\n      ELSE 'nurturing'\\n    END,\\n    updated_at = NOW()\\nWHERE id = $1\\nRETURNING stage;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id ] }}"
+        }
+      },
+      "name": "0b. Ensure Stage=Nurturing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -9120,
+        0
+      ],
+      "id": "823fce39-c00d-4df1-8c6c-87d189b9bfca",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upsert AS (\\n  INSERT INTO candidate_profiles (\\n    contact_id, cv_url, skills, experience_years, location,\\n    rate_currency, rate_min, rate_max, rate_period, availability\\n  )\\n  VALUES (\\n    $1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9::rate_period, $10::availability\\n  )\\n  ON CONFLICT (contact_id) DO UPDATE SET\\n    cv_url = EXCLUDED.cv_url,\\n    skills = EXCLUDED.skills,\\n    experience_years = EXCLUDED.experience_years,\\n    location = EXCLUDED.location,\\n    rate_currency = EXCLUDED.rate_currency,\\n    rate_min = EXCLUDED.rate_min,\\n    rate_max = EXCLUDED.rate_max,\\n    rate_period = EXCLUDED.rate_period,\\n    availability = EXCLUDED.availability,\\n    updated_at = NOW()\\n  RETURNING id\\n)\\nSELECT id AS candidate_profile_id FROM upsert\\nUNION ALL\\nSELECT id FROM candidate_profiles WHERE contact_id = $1\\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.contact_id, $('0. Prepare Context').item.json.candidate_profile.cv_url, JSON.stringify($('0. Prepare Context').item.json.candidate_profile.skills || []), $('0. Prepare Context').item.json.candidate_profile.experience_years, $('0. Prepare Context').item.json.candidate_profile.location, $('0. Prepare Context').item.json.candidate_profile.rate_currency, $('0. Prepare Context').item.json.candidate_profile.rate_min, $('0. Prepare Context').item.json.candidate_profile.rate_max, $('0. Prepare Context').item.json.candidate_profile.rate_period, $('0. Prepare Context').item.json.candidate_profile.availability ] }}"
+        }
+      },
+      "name": "1. Upsert Candidate Profile",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -8880,
+        0
+      ],
+      "id": "8e626f7d-e10e-47ce-b414-bb6818698fc9",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH payload AS (\\n  SELECT $1::uuid AS candidate_profile_id, jsonb_array_elements($2::jsonb) AS pool\\n),\\nins AS (\\n  INSERT INTO pools (name, description)\\n  SELECT DISTINCT pool->>'name', 'Auto-created from hr.proc.vacancy'\\n  FROM payload\\n  WHERE COALESCE(pool->>'name','') <> ''\\n  ON CONFLICT (name) DO UPDATE SET updated_at = NOW()\\n  RETURNING id, name\\n),\\nall_pools AS (\\n  SELECT id, name FROM ins\\n  UNION\\n  SELECT id, name FROM pools\\n  WHERE name IN (SELECT pool->>'name' FROM payload WHERE COALESCE(pool->>'name','') <> '')\\n),\\nmembership AS (\\n  INSERT INTO candidate_pool_members (pool_id, candidate_profile_id, status)\\n  SELECT ap.id, payload.candidate_profile_id, COALESCE(NULLIF(pool->>'status',''), 'prospect')\\n  FROM payload\\n  JOIN all_pools ap ON ap.name = pool->>'name'\\n  ON CONFLICT (pool_id, candidate_profile_id) DO UPDATE\\n    SET status = EXCLUDED.status\\n  RETURNING pool_id\\n)\\nSELECT COUNT(*) AS pools_linked FROM membership;",
+        "options": {
+          "queryReplacement": "={{ [ $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify($('0. Prepare Context').item.json.pool_targets || []) ] }}"
+        }
+      },
+      "name": "1a. Sync Pools",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -8640,
+        0
+      ],
+      "id": "fe09ada4-325f-407e-ba6f-bbb1f9661021",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('candidate', $1, 'profile_upserted', $2::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify({ contact_id: $('0. Prepare Context').item.json.contact_id, source_code: $('0. Prepare Context').item.json.source_code, skills: $('0. Prepare Context').item.json.candidate_profile.skills || [] }) ] }}"
+        }
+      },
+      "name": "1b. Log Candidate Profile",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -8400,
+        0
+      ],
+      "id": "e03607f9-e81f-453c-92ac-4faa94a41050",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tasks (lead_id, type, due_at, notes)\\nSELECT $1, 'review_estimate', NOW() + interval '2 days', $2\\nWHERE NOT EXISTS (\\n  SELECT 1 FROM tasks WHERE lead_id = $1 AND type = 'review_estimate' AND status = 'open'\\n);\\n\\nINSERT INTO tasks (lead_id, type, due_at, notes)\\nSELECT $1, 'add_to_pool', NOW() + interval '7 days', $3\\nWHERE NOT EXISTS (\\n  SELECT 1 FROM tasks WHERE lead_id = $1 AND type = 'add_to_pool' AND status = 'open'\\n)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, '\u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c NDA \u0438 \u043f\u0440\u043e\u0444\u0438\u043b\u044c \u043a\u0430\u043d\u0434\u0438\u0434\u0430\u0442\u0430', '\u041f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u0438\u0442\u044c \u043a\u0430\u043d\u0434\u0438\u0434\u0430\u0442\u0430 \u043a \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044e \u0432 \u043f\u0443\u043b' ] }}"
+        }
+      },
+      "name": "1c. Ensure Tasks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -8160,
+        0
+      ],
+      "id": "20072aab-7d8d-4043-a99e-859f53ea1a30",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "K7opSdocSendNDA",
+          "mode": "list",
+          "cachedResultName": "Send NDA via Chaindoc"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "name": "2. Trigger NDA",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -7920,
+        0
+      ],
+      "id": "31cca65d-647b-4a54-99f5-a2a7ea70ad8a",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('0. Prepare Context').item.json.human_delay_minutes }}",
+        "unit": "minutes"
+      },
+      "name": "2a. Wait Humanizer",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -7680,
+        0
+      ],
+      "id": "0dd45be9-eec1-4838-8769-4259afe32b1d",
+      "webhookId": "b4df9f00-6037-47bb-ab7b-5f32e24c5f8d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('0. Prepare Context').item.json;\nconst profile = ctx.candidate_profile || {};\nconst firstName = (ctx.full_name || '').split(' ')[0] || '\u041a\u043e\u043b\u043b\u0435\u0433\u0430';\nconst lang = ctx.preferred_lang || 'ru';\nconst availability = profile.availability || 'notice_period';\nconst skills = (profile.skills || []).slice(0, 3).join(', ');\nconst rate = profile.rate_min && profile.rate_currency ? `${profile.rate_min} ${profile.rate_currency}` : null;\nconst ndaUrl = ctx.nda_url;\n\nlet subject;\nlet body;\n\nif (lang === 'ru') {\n  subject = 'NDA \u0438 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0448\u0430\u0433 \u043f\u043e \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u0447\u0435\u0441\u0442\u0432\u0443';\n  const lines = [];\n  lines.push(`\u041f\u0440\u0438\u0432\u0435\u0442, ${firstName}!`);\n  lines.push('\u0421\u043f\u0430\u0441\u0438\u0431\u043e \u0437\u0430 \u043e\u0442\u043a\u043b\u0438\u043a \u2014 \u043c\u044b \u043a\u0430\u043a \u0440\u0430\u0437 \u0441\u043e\u0431\u0438\u0440\u0430\u0435\u043c \u043f\u0443\u043b \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442\u043e\u0432 \u043f\u043e\u0434 \u043f\u0440\u043e\u0435\u043a\u0442\u044b \u043a\u043b\u0438\u0435\u043d\u0442\u043e\u0432.');\n  lines.push(`\u0427\u0442\u043e\u0431\u044b \u043f\u043e\u0434\u0435\u043b\u0438\u0442\u044c\u0441\u044f \u0434\u0435\u0442\u0430\u043b\u044f\u043c\u0438, \u043f\u0440\u0438\u0448\u043b\u044e NDA: ${ndaUrl}`);\n  lines.push('\u041f\u043e\u0441\u043b\u0435 \u043f\u043e\u0434\u043f\u0438\u0441\u0438 \u043c\u043e\u0436\u0435\u043c \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u044c \u0442\u0432\u043e\u0439 \u043e\u043f\u044b\u0442 \u0438 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0437\u0430\u0434\u0430\u0447\u0438.');\n  const extra = [];\n  if (skills) extra.push(`\u0421\u0442\u0435\u043a: ${skills}`);\n  if (rate) extra.push(`\u041e\u0440\u0438\u0435\u043d\u0442\u0438\u0440 \u043f\u043e \u0441\u0442\u0430\u0432\u043a\u0435: ${rate}`);\n  if (availability === 'available_now') {\n    extra.push('\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e\u0441\u0442\u044c: \u0433\u043e\u0442\u043e\u0432 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u0441\u0440\u0430\u0437\u0443');\n  }\n  if (extra.length) {\n    lines.push(extra.join('\n'));\n  }\n  lines.push('\u0415\u0441\u043b\u0438 \u043f\u0443\u043b \u0438\u0434\u0435\u0430\u043b\u0435\u043d \u2014 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u043c \u0444\u043e\u0440\u043c\u0430\u0442 \u0438 \u0434\u043e\u0431\u0430\u0432\u0438\u043c \u0442\u0435\u0431\u044f \u0432 \u0431\u0430\u0437\u0443, \u0447\u0442\u043e\u0431\u044b \u043d\u0435 \u0442\u0435\u0440\u044f\u0442\u044c \u0432\u0440\u0435\u043c\u044f \u043d\u0430 \u0441\u0442\u0430\u0440\u0442\u0435 \u043f\u0440\u043e\u0435\u043a\u0442\u0430.');\n  lines.push('\u041d\u0430\u043f\u0438\u0448\u0438, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0443\u0434\u043e\u0431\u043d\u043e \u043b\u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c NDA \u043d\u0430 \u044d\u0442\u043e\u0439 \u043d\u0435\u0434\u0435\u043b\u0435 \u0438 \u043a\u0430\u043a\u043e\u0439 \u0444\u043e\u0440\u043c\u0430\u0442 \u043e\u0431\u0449\u0435\u043d\u0438\u044f \u043f\u0440\u0435\u0434\u043f\u043e\u0447\u0438\u0442\u0430\u0435\u0448\u044c.');\n  body = lines.join('\n\n');\n} else {\n  subject = 'Next step & NDA for our talent pool';\n  const lines = [];\n  lines.push(`Hi ${firstName},`);\n  lines.push('Thanks for reaching out! We are building a vetted pool for upcoming client projects.');\n  lines.push(`Here is the NDA so we can share details: ${ndaUrl}`);\n  lines.push('Once it is signed we can jump on a short intro call and review current openings.');\n  const extra = [];\n  if (skills) extra.push(`Stack: ${skills}`);\n  if (rate) extra.push(`Rate expectation: ${rate}`);\n  if (availability === 'available_now') {\n    extra.push('Availability: ready to join immediately');\n  }\n  if (extra.length) {\n    lines.push(extra.join('\n'));\n  }\n  lines.push('Let me know if the NDA works for you and how you prefer to stay in touch.');\n  body = lines.join('\n\n');\n}\n\nreturn [{\n  subject,\n  body,\n  template_lang: lang\n}];"
+      },
+      "name": "3. Compose Initial Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7440,
+        0
+      ],
+      "id": "d8a17056-ed5f-4ae8-b0e7-11ca3c73955a"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Prepare Context').item.json.email }}",
+        "subject": "={{ $('3. Compose Initial Email').item.json.subject }}",
+        "message": "={{ $('3. Compose Initial Email').item.json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "3a. Send Initial Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -7200,
+        0
+      ],
+      "id": "266601fc-2e69-4875-a27f-4b47ccb0ef70",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (\\n  conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, external_message_id, meta\\n)\\nVALUES (\\n  $1, 'outbound', 'email', $2, $3, NULL, NOW(), $4, $5::jsonb\\n)\\nRETURNING id AS message_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.contact_id, $('3. Compose Initial Email').item.json.body, $('3a. Send Initial Email').item.json.id, JSON.stringify({ subject: $('3. Compose Initial Email').item.json.subject, kind: 'hr_initial', template_lang: $('3. Compose Initial Email').item.json.template_lang }) ] }}"
+        }
+      },
+      "name": "3b. Log Initial Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6960,
+        0
+      ],
+      "id": "7eac05a4-e5ac-4cf0-841e-e6d6933edcbb",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE leads SET stage = 'nurturing', updated_at = NOW() WHERE id = $1 AND stage NOT IN ('in_pool','won','lost');\\nUPDATE conversations SET last_message_at = NOW() WHERE id = $2 RETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, $('0. Prepare Context').item.json.conversation_id ] }}"
+        }
+      },
+      "name": "3c. Update Lead & Conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6720,
+        0
+      ],
+      "id": "463bca66-1b30-46c6-ae35-997d7e7621d8",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_initial_email_sent', $2::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Prepare Context').item.json.conversation_id, email: $('0. Prepare Context').item.json.email, template_lang: $('3. Compose Initial Email').item.json.template_lang }) ] }}"
+        }
+      },
+      "name": "3d. Log Initial Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6480,
+        0
+      ],
+      "id": "2d358b9c-b09d-4058-8cd1-f706c669f8e5",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('0. Prepare Context').item.json.followup1_delay_days }}",
+        "unit": "days"
+      },
+      "name": "4. Wait Before Follow-up #1",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -6240,
+        0
+      ],
+      "id": "00015790-cda8-44c1-a3f8-69fef5871041",
+      "webhookId": "d79d5e7c-84f2-4f57-8f84-1485bb82caf9"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\\n  'after_initial'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
+        }
+      },
+      "name": "4a. Check Engagement",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -6000,
+        0
+      ],
+      "id": "5aab6fa3-99c4-49d7-9f1f-66fea17c1b28",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
+              "operation": "isEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "name": "4b. Engaged After Initial?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -5760,
+        0
+      ],
+      "id": "ee1eeb11-b5a2-440d-8566-cf9b9fb74b76"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('0. Prepare Context').item.json;\nconst lang = ctx.preferred_lang || 'ru';\nconst firstName = (ctx.full_name || '').split(' ')[0] || '\u041a\u043e\u043b\u043b\u0435\u0433\u0430';\nconst ndaUrl = ctx.nda_url;\nlet subject;\nlet body;\nif (lang === 'ru') {\n  subject = '\u041f\u043e\u0434\u043f\u0438\u0441\u044c NDA \u0438 \u0441\u043b\u043e\u0442 \u0434\u043b\u044f \u0441\u043e\u0437\u0432\u043e\u043d\u0430';\n  body = [\n    `\u041f\u0440\u0438\u0432\u0435\u0442, ${firstName}!`,\n    '\u0414\u0443\u0431\u043b\u0438\u0440\u0443\u044e NDA, \u0447\u0442\u043e\u0431\u044b \u043c\u044b \u043c\u043e\u0433\u043b\u0438 \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u044c \u043f\u0440\u043e\u0435\u043a\u0442\u044b \u0431\u0435\u0437 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u0439.',\n    ndaUrl,\n    '\u0415\u0441\u043b\u0438 \u0435\u0441\u0442\u044c \u0432\u043e\u043f\u0440\u043e\u0441\u044b \u043f\u043e \u0444\u043e\u0440\u043c\u0430\u0442\u0443 \u0438\u043b\u0438 \u0441\u0442\u0430\u0432\u043a\u0435 \u2014 \u043f\u0440\u043e\u0441\u0442\u043e \u043e\u0442\u0432\u0435\u0442\u044c \u043d\u0430 \u044d\u0442\u043e \u043f\u0438\u0441\u044c\u043c\u043e. \u041c\u043e\u0433\u0443 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438\u0442\u044c \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0441\u043b\u043e\u0442\u043e\u0432 \u043d\u0430 \u044d\u0442\u043e\u0439 \u043d\u0435\u0434\u0435\u043b\u0435.'\n  ].join('\n\n');\n} else {\n  subject = 'Gentle reminder about NDA';\n  body = [\n    `Hi ${firstName},`,\n    'Just following up on the NDA so we can move forward and review current opportunities.',\n    ndaUrl,\n    'Happy to jump on a short call \u2014 feel free to share a couple of time slots or any questions.'\n  ].join('\n\n');\n}\nreturn [{ subject, body, template_lang: lang }];"
+      },
+      "name": "4c. Compose Follow-up #1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5520,
+        -160
+      ],
+      "id": "675d7a06-e3fd-4bc7-a4f3-20e3a20fb173"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Prepare Context').item.json.email }}",
+        "subject": "={{ $('4c. Compose Follow-up #1').item.json.subject }}",
+        "message": "={{ $('4c. Compose Follow-up #1').item.json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "4d. Send Follow-up #1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -5280,
+        -160
+      ],
+      "id": "25108bb5-1f0a-49ba-a5fe-5e0e27e9e798",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, external_message_id, meta)\\nVALUES ($1, 'outbound', 'email', $2, $3, NULL, NOW(), $4, $5::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.contact_id, $('4c. Compose Follow-up #1').item.json.body, $('4d. Send Follow-up #1').item.json.id, JSON.stringify({ subject: $('4c. Compose Follow-up #1').item.json.subject, kind: 'hr_followup_1', template_lang: $('4c. Compose Follow-up #1').item.json.template_lang }) ] }}"
+        }
+      },
+      "name": "4e. Log Follow-up #1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -5040,
+        -160
+      ],
+      "id": "8f5503ac-e97a-4dec-b9f2-96133811735a",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_followup_1_sent', $2::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ followup: 1, email: $('0. Prepare Context').item.json.email }) ] }}"
+        }
+      },
+      "name": "4f. Log Follow-up #1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -4800,
+        -160
+      ],
+      "id": "1236b44b-7e0d-4bc4-89ce-3c6d46982deb",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('0. Prepare Context').item.json.followup2_delay_days }}",
+        "unit": "days"
+      },
+      "name": "5. Wait Before Follow-up #2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -4560,
+        0
+      ],
+      "id": "21cc6dfd-6425-4ae1-a63f-d2b5cec401e4",
+      "webhookId": "fb0675bd-5329-4de4-88cb-c01115dae0ce"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\\n  'after_followup_1'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
+        }
+      },
+      "name": "5a. Check Engagement",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -4320,
+        0
+      ],
+      "id": "3389b3a8-61d1-4452-a4d3-a4bd2fc92563",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
+              "operation": "isEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "name": "5b. Engaged After Follow-up #1?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -4080,
+        0
+      ],
+      "id": "f69b302f-0038-4feb-874b-ab736467b6d2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('0. Prepare Context').item.json;\nconst lang = ctx.preferred_lang || 'ru';\nconst firstName = (ctx.full_name || '').split(' ')[0] || '\u041a\u043e\u043b\u043b\u0435\u0433\u0430';\nlet subject;\nlet body;\nif (lang === 'ru') {\n  subject = '\u0414\u043e\u0431\u0430\u0432\u0438\u043c \u0432 \u043f\u0443\u043b \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442\u043e\u0432?';\n  body = [\n    `\u041f\u0440\u0438\u0432\u0435\u0442, ${firstName}!`,\n    '\u041f\u0438\u0448\u0443 \u0432 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439 \u0440\u0430\u0437 \u2014 \u043c\u044b \u0437\u0430\u0432\u0435\u0440\u0448\u0430\u0435\u043c \u043f\u043e\u0434\u0431\u043e\u0440 \u043f\u0443\u043b\u0430 \u043d\u0430 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u043f\u0440\u043e\u0435\u043a\u0442\u044b.',\n    '\u0415\u0441\u043b\u0438 NDA \u0435\u0449\u0451 \u0432 \u043f\u0440\u043e\u0446\u0435\u0441\u0441\u0435 \u2014 \u043f\u0440\u0438\u0448\u043b\u044e \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e, \u043f\u0440\u043e\u0441\u0442\u043e \u0434\u0430\u0439 \u0437\u043d\u0430\u0442\u044c. \u041f\u043e\u0441\u043b\u0435 \u043f\u043e\u0434\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u0441\u043c\u043e\u0436\u0435\u043c \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0442\u0432\u043e\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c \u0441 \u0437\u0430\u043f\u0440\u043e\u0441\u0430\u043c\u0438 \u043a\u043b\u0438\u0435\u043d\u0442\u043e\u0432.',\n    '\u0415\u0441\u043b\u0438 \u0444\u043e\u0440\u043c\u0430\u0442 \u043d\u0435 \u043f\u043e\u0434\u0445\u043e\u0434\u0438\u0442 \u2014 \u0442\u043e\u0436\u0435 \u043e\u043a, \u0441\u043a\u0430\u0436\u0438, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0447\u0442\u043e\u0431\u044b \u044f \u043e\u0442\u043c\u0435\u0442\u0438\u043b \u0441\u0442\u0430\u0442\u0443\u0441.'\n  ].join('\n\n');\n} else {\n  subject = 'Final check-in for the talent pool';\n  body = [\n    `Hi ${firstName},`,\n    'We are wrapping up this hiring wave and I wanted to see if you still want to join the pool.',\n    'Happy to resend the NDA or jump on a quick call if needed.',\n    'If now is not the right time just let me know, so I can keep the status up to date.'\n  ].join('\n\n');\n}\nreturn [{ subject, body, template_lang: lang }];"
+      },
+      "name": "5c. Compose Follow-up #2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3840,
+        -160
+      ],
+      "id": "7394de24-4007-4e92-8825-c2b67ac9c283"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('0. Prepare Context').item.json.email }}",
+        "subject": "={{ $('5c. Compose Follow-up #2').item.json.subject }}",
+        "message": "={{ $('5c. Compose Follow-up #2').item.json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "5d. Send Follow-up #2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -3600,
+        -160
+      ],
+      "id": "524c67ac-f920-46b6-8a0c-babc28d7cff8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dRP6U59xFUhSEpp0",
+          "name": "Gmail account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, external_message_id, meta)\\nVALUES ($1, 'outbound', 'email', $2, $3, NULL, NOW(), $4, $5::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.contact_id, $('5c. Compose Follow-up #2').item.json.body, $('5d. Send Follow-up #2').item.json.id, JSON.stringify({ subject: $('5c. Compose Follow-up #2').item.json.subject, kind: 'hr_followup_2', template_lang: $('5c. Compose Follow-up #2').item.json.template_lang }) ] }}"
+        }
+      },
+      "name": "5e. Log Follow-up #2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3360,
+        -160
+      ],
+      "id": "f5db3f7d-2cc9-45ea-a761-98ac9773686c",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_followup_2_sent', $2::jsonb)\\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ followup: 2, email: $('0. Prepare Context').item.json.email }) ] }}"
+        }
+      },
+      "name": "5f. Log Follow-up #2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3120,
+        -160
+      ],
+      "id": "0ef67366-19f2-4188-8e70-00cd3ac5f88d",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('0. Prepare Context').item.json.final_delay_days }}",
+        "unit": "days"
+      },
+      "name": "6. Final Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2880,
+        0
+      ],
+      "id": "2f65c9f5-1b65-4dc4-8df8-93d6b4940795",
+      "webhookId": "4f137b3a-ec97-45e0-b5f6-d3bc57c8d1aa"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\\n  'after_followup_2'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
+        }
+      },
+      "name": "6a. Check Final Engagement",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2640,
+        0
+      ],
+      "id": "4e2a2e48-d7cc-4ae5-ba13-c3d2ca3c62b1",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
+              "operation": "isEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "name": "6b. Engaged After Follow-up #2?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        0
+      ],
+      "id": "7e693236-2492-44d9-9af0-4ebd64a30357"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ctx AS (\\n  SELECT\\n    ($3::jsonb)->>'checkpoint' AS checkpoint,\\n    (($3::jsonb)->>'has_inbound_reply')::boolean AS has_inbound_reply,\\n    (($3::jsonb)->>'nda_signed')::boolean AS nda_signed\\n),\\nlead_update AS (\\n  UPDATE leads SET stage = 'in_pool', updated_at = NOW() WHERE id = $1 RETURNING id\\n),\\npool_update AS (\\n  UPDATE candidate_pool_members SET status = 'active' WHERE candidate_profile_id = $2 RETURNING pool_id\\n),\\ntask_update AS (\\n  UPDATE tasks SET status = 'done', completed_at = NOW(), updated_at = NOW()\\n  WHERE lead_id = $1 AND type IN ('review_estimate','add_to_pool') AND status = 'open'\\n  RETURNING id\\n),\\nevent AS (\\n  INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\n  SELECT 'lead', $1, 'vacancy_candidate_engaged', jsonb_build_object(\\n    'candidate_profile_id', $2,\\n    'checkpoint', ctx.checkpoint,\\n    'has_inbound_reply', ctx.has_inbound_reply,\\n    'nda_signed', ctx.nda_signed\\n  )\\n  FROM ctx\\n  RETURNING id\\n)\\nSELECT\\n  (SELECT checkpoint FROM ctx) AS checkpoint,\\n  (SELECT has_inbound_reply FROM ctx) AS has_inbound_reply,\\n  (SELECT nda_signed FROM ctx) AS nda_signed,\\n  (SELECT count(*) FROM pool_update) AS pools_activated,\\n  (SELECT count(*) FROM task_update) AS tasks_closed;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify({ checkpoint: $json.checkpoint, has_inbound_reply: $json.has_inbound_reply, nda_signed: $json.nda_signed }) ] }}"
+        }
+      },
+      "name": "6c. Mark Candidate Engaged",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3600,
+        240
+      ],
+      "id": "af0b1fac-93bb-4f15-bf44-848944e3ef69",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "engaged"
+            },
+            {
+              "name": "lead_id",
+              "value": "={{ $('0. Prepare Context').item.json.lead_id }}"
+            },
+            {
+              "name": "candidate_profile_id",
+              "value": "={{ $('1. Upsert Candidate Profile').item.json.candidate_profile_id }}"
+            },
+            {
+              "name": "checkpoint",
+              "value": "={{ $json.checkpoint }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "followups_sent",
+              "value": "={{ $json.checkpoint === 'after_initial' ? 0 : $json.checkpoint === 'after_followup_1' ? 1 : 2 }}"
+            }
+          ]
+        }
+      },
+      "name": "6d. Result (Engaged)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3360,
+        240
+      ],
+      "id": "186ac675-49b6-4b3d-8441-f513f269b835"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ctx AS (\\n  SELECT ($3::jsonb)->>'checkpoint' AS checkpoint\\n),\\nlead_update AS (\\n  UPDATE leads SET stage = 'archived', updated_at = NOW() WHERE id = $1 RETURNING id\\n),\\npool_update AS (\\n  UPDATE candidate_pool_members SET status = 'archived' WHERE candidate_profile_id = $2 RETURNING pool_id\\n),\\ntask_update AS (\\n  UPDATE tasks SET status = 'canceled', updated_at = NOW() WHERE lead_id = $1 AND status = 'open' RETURNING id\\n),\\nevent AS (\\n  INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\n  SELECT 'lead', $1, 'vacancy_candidate_archived', jsonb_build_object(\\n    'candidate_profile_id', $2,\\n    'checkpoint', ctx.checkpoint,\\n    'reason', 'no_response_after_followup_2'\\n  )\\n  FROM ctx\\n  RETURNING id\\n)\\nSELECT\\n  (SELECT checkpoint FROM ctx) AS checkpoint,\\n  (SELECT count(*) FROM pool_update) AS pools_archived,\\n  (SELECT count(*) FROM task_update) AS tasks_closed;",
+        "options": {
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify({ checkpoint: $json.checkpoint }) ] }}"
+        }
+      },
+      "name": "6e. Archive Candidate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2160,
+        -160
+      ],
+      "id": "43261371-17e6-4ff5-b25c-1114a972ab05",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "archived"
+            },
+            {
+              "name": "lead_id",
+              "value": "={{ $('0. Prepare Context').item.json.lead_id }}"
+            },
+            {
+              "name": "candidate_profile_id",
+              "value": "={{ $('1. Upsert Candidate Profile').item.json.candidate_profile_id }}"
+            },
+            {
+              "name": "checkpoint",
+              "value": "={{ $json.checkpoint }}"
+            },
+            {
+              "name": "reason",
+              "value": "no_response_after_followup_2"
+            }
+          ],
+          "number": [
+            {
+              "name": "followups_sent",
+              "value": "=2"
+            }
+          ]
+        }
+      },
+      "name": "6f. Result (Archived)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1920,
+        -160
+      ],
+      "id": "08347815-eac2-4d29-b8c9-2288eb7bb4b7"
+    }
+  ],
+  "connections": {
+    "[START] hr.proc.vacancy": {
+      "main": [
+        [
+          {
+            "node": "0. Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0. Prepare Context": {
+      "main": [
+        [
+          {
+            "node": "0b. Ensure Stage=Nurturing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0b. Ensure Stage=Nurturing": {
+      "main": [
+        [
+          {
+            "node": "1. Upsert Candidate Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Upsert Candidate Profile": {
+      "main": [
+        [
+          {
+            "node": "1a. Sync Pools",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1a. Sync Pools": {
+      "main": [
+        [
+          {
+            "node": "1b. Log Candidate Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. Log Candidate Profile": {
+      "main": [
+        [
+          {
+            "node": "1c. Ensure Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1c. Ensure Tasks": {
+      "main": [
+        [
+          {
+            "node": "2. Trigger NDA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Trigger NDA": {
+      "main": [
+        [
+          {
+            "node": "2a. Wait Humanizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2a. Wait Humanizer": {
+      "main": [
+        [
+          {
+            "node": "3. Compose Initial Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Compose Initial Email": {
+      "main": [
+        [
+          {
+            "node": "3a. Send Initial Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3a. Send Initial Email": {
+      "main": [
+        [
+          {
+            "node": "3b. Log Initial Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3b. Log Initial Message": {
+      "main": [
+        [
+          {
+            "node": "3c. Update Lead & Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3c. Update Lead & Conversation": {
+      "main": [
+        [
+          {
+            "node": "3d. Log Initial Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3d. Log Initial Event": {
+      "main": [
+        [
+          {
+            "node": "4. Wait Before Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Wait Before Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "4a. Check Engagement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Check Engagement": {
+      "main": [
+        [
+          {
+            "node": "4b. Engaged After Initial?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Engaged After Initial?": {
+      "main": [
+        [
+          {
+            "node": "6c. Mark Candidate Engaged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "4c. Compose Follow-up #1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "5. Wait Before Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4c. Compose Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "4d. Send Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4d. Send Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "4e. Log Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4e. Log Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "4f. Log Follow-up #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4f. Log Follow-up #1": {
+      "main": [
+        [
+          {
+            "node": "5. Wait Before Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Wait Before Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "5a. Check Engagement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Check Engagement": {
+      "main": [
+        [
+          {
+            "node": "5b. Engaged After Follow-up #1?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5b. Engaged After Follow-up #1?": {
+      "main": [
+        [
+          {
+            "node": "6c. Mark Candidate Engaged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5c. Compose Follow-up #2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "6. Final Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5c. Compose Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "5d. Send Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5d. Send Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "5e. Log Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5e. Log Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "5f. Log Follow-up #2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Log Follow-up #2": {
+      "main": [
+        [
+          {
+            "node": "6. Final Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Final Wait": {
+      "main": [
+        [
+          {
+            "node": "6a. Check Final Engagement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Check Final Engagement": {
+      "main": [
+        [
+          {
+            "node": "6b. Engaged After Follow-up #2?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Engaged After Follow-up #2?": {
+      "main": [
+        [
+          {
+            "node": "6c. Mark Candidate Engaged",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "6e. Archive Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Mark Candidate Engaged": {
+      "main": [
+        [
+          {
+            "node": "6d. Result (Engaged)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6e. Archive Candidate": {
+      "main": [
+        [
+          {
+            "node": "6f. Result (Archived)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f28e31f-3eb1-47ab-afb7-dbfa02466987"
+  }
+}
