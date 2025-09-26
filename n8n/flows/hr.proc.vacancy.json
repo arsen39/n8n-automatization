@@ -293,35 +293,20 @@
     },
     {
       "parameters": {
-        "amount": "={{ $('0. Prepare Context').item.json.followup1_delay_days }}",
-        "unit": "days"
-      },
-      "name": "4. Wait Before Follow-up #1",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        -6240,
-        0
-      ],
-      "id": "00015790-cda8-44c1-a3f8-69fef5871041",
-      "webhookId": "d79d5e7c-84f2-4f57-8f84-1485bb82caf9"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\\n  'after_initial'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
+        "query": "WITH payload AS (\n  SELECT\n    $1::uuid AS lead_id,\n    $2::jsonb AS data\n)\nINSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nSELECT 'lead', lead_id, 'vacancy_followup_scheduled', data\nFROM payload\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
+          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ conversation_id: $('0. Prepare Context').item.json.conversation_id, contact_id: $('0. Prepare Context').item.json.contact_id, candidate_profile_id: $('1. Upsert Candidate Profile').item.json.candidate_profile_id, email: $('0. Prepare Context').item.json.email, full_name: $('0. Prepare Context').item.json.full_name, preferred_lang: $('0. Prepare Context').item.json.preferred_lang, nda_external_id: $('0. Prepare Context').item.json.nda_external_id, nda_url: $('0. Prepare Context').item.json.nda_url, followup1_delay_days: $('0. Prepare Context').item.json.followup1_delay_days, followup2_delay_days: $('0. Prepare Context').item.json.followup2_delay_days, final_delay_days: $('0. Prepare Context').item.json.final_delay_days, scheduled_by: 'hr.proc.vacancy' }) ] }}"
         }
       },
-      "name": "4a. Check Engagement",
+      "name": "4. Schedule Follow-ups",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
         -6000,
         0
       ],
-      "id": "5aab6fa3-99c4-49d7-9f1f-66fea17c1b28",
+      "id": "0afce628-8dab-4953-924a-c69501da9f1c",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -331,450 +316,42 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
+        "keepOnlySet": true,
+        "values": {
+          "string": [
             {
-              "leftValue": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "rightValue": "true"
+              "name": "status",
+              "value": "scheduled"
+            },
+            {
+              "name": "lead_id",
+              "value": "={{ $('0. Prepare Context').item.json.lead_id }}"
+            },
+            {
+              "name": "candidate_profile_id",
+              "value": "={{ $('1. Upsert Candidate Profile').item.json.candidate_profile_id }}"
+            },
+            {
+              "name": "followups_strategy",
+              "value": "sequencer"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "followups_scheduled",
+              "value": true
             }
           ]
         }
       },
-      "name": "4b. Engaged After Initial?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "name": "5. Result (Scheduled)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
       "position": [
         -5760,
         0
       ],
-      "id": "ee1eeb11-b5a2-440d-8566-cf9b9fb74b76"
-    },
-    {
-      "parameters": {
-        "jsCode": "const ctx = $('0. Prepare Context').item.json;\nconst lang = ctx.preferred_lang || 'ru';\nconst firstName = (ctx.full_name || '').split(' ')[0] || 'Коллега';\nconst ndaUrl = ctx.nda_url;\nlet subject;\nlet body;\nif (lang === 'ru') {\n  subject = 'Подпись NDA и слот для созвона';\n  body = [\n    `Привет, ${firstName}!`,\n    'Дублирую NDA, чтобы мы могли обсудить проекты без ограничений.',\n    ndaUrl,\n    'Если есть вопросы по формату или ставке — просто ответь на это письмо. Могу предложить несколько слотов на этой неделе.'\n  ].join('\n\n');\n} else {\n  subject = 'Gentle reminder about NDA';\n  body = [\n    `Hi ${firstName},`,\n    'Just following up on the NDA so we can move forward and review current opportunities.',\n    ndaUrl,\n    'Happy to jump on a short call — feel free to share a couple of time slots or any questions.'\n  ].join('\n\n');\n}\nreturn [{ subject, body, template_lang: lang }];"
-      },
-      "name": "4c. Compose Follow-up #1",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -5520,
-        -160
-      ],
-      "id": "675d7a06-e3fd-4bc7-a4f3-20e3a20fb173"
-    },
-    {
-      "parameters": {
-        "sendTo": "={{ $('0. Prepare Context').item.json.email }}",
-        "subject": "={{ $('4c. Compose Follow-up #1').item.json.subject }}",
-        "message": "={{ $('4c. Compose Follow-up #1').item.json.body }}",
-        "options": {
-          "appendAttribution": false
-        }
-      },
-      "name": "4d. Send Follow-up #1",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        -5280,
-        -160
-      ],
-      "id": "25108bb5-1f0a-49ba-a5fe-5e0e27e9e798",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "dRP6U59xFUhSEpp0",
-          "name": "Gmail account"
-        }
-      },
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, external_message_id, meta)\\nVALUES ($1, 'outbound', 'email', $2, $3, NULL, NOW(), $4, $5::jsonb)\\nRETURNING id;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.contact_id, $('4c. Compose Follow-up #1').item.json.body, $('4d. Send Follow-up #1').item.json.id, JSON.stringify({ subject: $('4c. Compose Follow-up #1').item.json.subject, kind: 'hr_followup_1', template_lang: $('4c. Compose Follow-up #1').item.json.template_lang }) ] }}"
-        }
-      },
-      "name": "4e. Log Follow-up #1",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -5040,
-        -160
-      ],
-      "id": "8f5503ac-e97a-4dec-b9f2-96133811735a",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_followup_1_sent', $2::jsonb)\\nRETURNING id;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ followup: 1, email: $('0. Prepare Context').item.json.email }) ] }}"
-        }
-      },
-      "name": "4f. Log Follow-up #1",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -4800,
-        -160
-      ],
-      "id": "1236b44b-7e0d-4bc4-89ce-3c6d46982deb",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "amount": "={{ $('0. Prepare Context').item.json.followup2_delay_days }}",
-        "unit": "days"
-      },
-      "name": "5. Wait Before Follow-up #2",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        -4560,
-        0
-      ],
-      "id": "21cc6dfd-6425-4ae1-a63f-d2b5cec401e4",
-      "webhookId": "fb0675bd-5329-4de4-88cb-c01115dae0ce"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\\n  'after_followup_1'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
-        }
-      },
-      "name": "5a. Check Engagement",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -4320,
-        0
-      ],
-      "id": "3389b3a8-61d1-4452-a4d3-a4bd2fc92563",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "rightValue": "true"
-            }
-          ]
-        }
-      },
-      "name": "5b. Engaged After Follow-up #1?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -4080,
-        0
-      ],
-      "id": "f69b302f-0038-4feb-874b-ab736467b6d2"
-    },
-    {
-      "parameters": {
-        "jsCode": "const ctx = $('0. Prepare Context').item.json;\nconst lang = ctx.preferred_lang || 'ru';\nconst firstName = (ctx.full_name || '').split(' ')[0] || 'Коллега';\nlet subject;\nlet body;\nif (lang === 'ru') {\n  subject = 'Добавим в пул специалистов?';\n  body = [\n    `Привет, ${firstName}!`,\n    'Пишу в последний раз — мы завершаем подбор пула на ближайшие проекты.',\n    'Если NDA ещё в процессе — пришлю повторно, просто дай знать. После подписания сможем синхронизировать твой профиль с запросами клиентов.',\n    'Если формат не подходит — тоже ок, скажи, пожалуйста, чтобы я отметил статус.'\n  ].join('\n\n');\n} else {\n  subject = 'Final check-in for the talent pool';\n  body = [\n    `Hi ${firstName},`,\n    'We are wrapping up this hiring wave and I wanted to see if you still want to join the pool.',\n    'Happy to resend the NDA or jump on a quick call if needed.',\n    'If now is not the right time just let me know, so I can keep the status up to date.'\n  ].join('\n\n');\n}\nreturn [{ subject, body, template_lang: lang }];"
-      },
-      "name": "5c. Compose Follow-up #2",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -3840,
-        -160
-      ],
-      "id": "7394de24-4007-4e92-8825-c2b67ac9c283"
-    },
-    {
-      "parameters": {
-        "sendTo": "={{ $('0. Prepare Context').item.json.email }}",
-        "subject": "={{ $('5c. Compose Follow-up #2').item.json.subject }}",
-        "message": "={{ $('5c. Compose Follow-up #2').item.json.body }}",
-        "options": {
-          "appendAttribution": false
-        }
-      },
-      "name": "5d. Send Follow-up #2",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        -3600,
-        -160
-      ],
-      "id": "524c67ac-f920-46b6-8a0c-babc28d7cff8",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "dRP6U59xFUhSEpp0",
-          "name": "Gmail account"
-        }
-      },
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, external_message_id, meta)\\nVALUES ($1, 'outbound', 'email', $2, $3, NULL, NOW(), $4, $5::jsonb)\\nRETURNING id;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.contact_id, $('5c. Compose Follow-up #2').item.json.body, $('5d. Send Follow-up #2').item.json.id, JSON.stringify({ subject: $('5c. Compose Follow-up #2').item.json.subject, kind: 'hr_followup_2', template_lang: $('5c. Compose Follow-up #2').item.json.template_lang }) ] }}"
-        }
-      },
-      "name": "5e. Log Follow-up #2",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -3360,
-        -160
-      ],
-      "id": "f5db3f7d-2cc9-45ea-a761-98ac9773686c",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\nVALUES ('lead', $1, 'vacancy_followup_2_sent', $2::jsonb)\\nRETURNING id;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, JSON.stringify({ followup: 2, email: $('0. Prepare Context').item.json.email }) ] }}"
-        }
-      },
-      "name": "5f. Log Follow-up #2",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -3120,
-        -160
-      ],
-      "id": "0ef67366-19f2-4188-8e70-00cd3ac5f88d",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "amount": "={{ $('0. Prepare Context').item.json.final_delay_days }}",
-        "unit": "days"
-      },
-      "name": "6. Final Wait",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        -2880,
-        0
-      ],
-      "id": "2f65c9f5-1b65-4dc4-8df8-93d6b4940795",
-      "webhookId": "4f137b3a-ec97-45e0-b5f6-d3bc57c8d1aa"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\\n  'after_followup_2'::text AS checkpoint,\\n  EXISTS (\\n    SELECT 1 FROM messages\\n    WHERE conversation_id = $1 AND direction = 'inbound' AND message_ts >= NOW() - interval '14 days'\\n  ) AS has_inbound_reply,\\n  EXISTS (\\n    SELECT 1 FROM documents\\n    WHERE lead_id = $2 AND doc_type = 'nda' AND status IN ('signed','viewed')\\n  ) AS nda_signed;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.conversation_id, $('0. Prepare Context').item.json.lead_id ] }}"
-        }
-      },
-      "name": "6a. Check Final Engagement",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -2640,
-        0
-      ],
-      "id": "4e2a2e48-d7cc-4ae5-ba13-c3d2ca3c62b1",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "conditions": [
-            {
-              "leftValue": "={{ ($json.has_inbound_reply || $json.nda_signed) ? 'true' : 'false' }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              },
-              "rightValue": "true"
-            }
-          ]
-        }
-      },
-      "name": "6b. Engaged After Follow-up #2?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -2400,
-        0
-      ],
-      "id": "7e693236-2492-44d9-9af0-4ebd64a30357"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH ctx AS (\\n  SELECT\\n    ($3::jsonb)->>'checkpoint' AS checkpoint,\\n    (($3::jsonb)->>'has_inbound_reply')::boolean AS has_inbound_reply,\\n    (($3::jsonb)->>'nda_signed')::boolean AS nda_signed\\n),\\nlead_update AS (\\n  UPDATE leads SET stage = 'in_pool', updated_at = NOW() WHERE id = $1 RETURNING id\\n),\\npool_update AS (\\n  UPDATE candidate_pool_members SET status = 'active' WHERE candidate_profile_id = $2 RETURNING pool_id\\n),\\ntask_update AS (\\n  UPDATE tasks SET status = 'done', completed_at = NOW(), updated_at = NOW()\\n  WHERE lead_id = $1 AND type IN ('review_estimate','add_to_pool') AND status = 'open'\\n  RETURNING id\\n),\\nevent AS (\\n  INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\n  SELECT 'lead', $1, 'vacancy_candidate_engaged', jsonb_build_object(\\n    'candidate_profile_id', $2,\\n    'checkpoint', ctx.checkpoint,\\n    'has_inbound_reply', ctx.has_inbound_reply,\\n    'nda_signed', ctx.nda_signed\\n  )\\n  FROM ctx\\n  RETURNING id\\n)\\nSELECT\\n  (SELECT checkpoint FROM ctx) AS checkpoint,\\n  (SELECT has_inbound_reply FROM ctx) AS has_inbound_reply,\\n  (SELECT nda_signed FROM ctx) AS nda_signed,\\n  (SELECT count(*) FROM pool_update) AS pools_activated,\\n  (SELECT count(*) FROM task_update) AS tasks_closed;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify({ checkpoint: $json.checkpoint, has_inbound_reply: $json.has_inbound_reply, nda_signed: $json.nda_signed }) ] }}"
-        }
-      },
-      "name": "6c. Mark Candidate Engaged",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -3600,
-        240
-      ],
-      "id": "af0b1fac-93bb-4f15-bf44-848944e3ef69",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
-            {
-              "name": "status",
-              "value": "engaged"
-            },
-            {
-              "name": "lead_id",
-              "value": "={{ $('0. Prepare Context').item.json.lead_id }}"
-            },
-            {
-              "name": "candidate_profile_id",
-              "value": "={{ $('1. Upsert Candidate Profile').item.json.candidate_profile_id }}"
-            },
-            {
-              "name": "checkpoint",
-              "value": "={{ $json.checkpoint }}"
-            }
-          ],
-          "number": [
-            {
-              "name": "followups_sent",
-              "value": "={{ $json.checkpoint === 'after_initial' ? 0 : $json.checkpoint === 'after_followup_1' ? 1 : 2 }}"
-            }
-          ]
-        }
-      },
-      "name": "6d. Result (Engaged)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -3360,
-        240
-      ],
-      "id": "186ac675-49b6-4b3d-8441-f513f269b835"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH ctx AS (\\n  SELECT ($3::jsonb)->>'checkpoint' AS checkpoint\\n),\\nlead_update AS (\\n  UPDATE leads SET stage = 'archived', updated_at = NOW() WHERE id = $1 RETURNING id\\n),\\npool_update AS (\\n  UPDATE candidate_pool_members SET status = 'archived' WHERE candidate_profile_id = $2 RETURNING pool_id\\n),\\ntask_update AS (\\n  UPDATE tasks SET status = 'canceled', updated_at = NOW() WHERE lead_id = $1 AND status = 'open' RETURNING id\\n),\\nevent AS (\\n  INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\\n  SELECT 'lead', $1, 'vacancy_candidate_archived', jsonb_build_object(\\n    'candidate_profile_id', $2,\\n    'checkpoint', ctx.checkpoint,\\n    'reason', 'no_response_after_followup_2'\\n  )\\n  FROM ctx\\n  RETURNING id\\n)\\nSELECT\\n  (SELECT checkpoint FROM ctx) AS checkpoint,\\n  (SELECT count(*) FROM pool_update) AS pools_archived,\\n  (SELECT count(*) FROM task_update) AS tasks_closed;",
-        "options": {
-          "queryReplacement": "={{ [ $('0. Prepare Context').item.json.lead_id, $('1. Upsert Candidate Profile').item.json.candidate_profile_id, JSON.stringify({ checkpoint: $json.checkpoint }) ] }}"
-        }
-      },
-      "name": "6e. Archive Candidate",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        -2160,
-        -160
-      ],
-      "id": "43261371-17e6-4ff5-b25c-1114a972ab05",
-      "credentials": {
-        "postgres": {
-          "id": "Q6TYPE7PGoXfCRLa",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
-            {
-              "name": "status",
-              "value": "archived"
-            },
-            {
-              "name": "lead_id",
-              "value": "={{ $('0. Prepare Context').item.json.lead_id }}"
-            },
-            {
-              "name": "candidate_profile_id",
-              "value": "={{ $('1. Upsert Candidate Profile').item.json.candidate_profile_id }}"
-            },
-            {
-              "name": "checkpoint",
-              "value": "={{ $json.checkpoint }}"
-            },
-            {
-              "name": "reason",
-              "value": "no_response_after_followup_2"
-            }
-          ],
-          "number": [
-            {
-              "name": "followups_sent",
-              "value": "=2"
-            }
-          ]
-        }
-      },
-      "name": "6f. Result (Archived)",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -1920,
-        -160
-      ],
-      "id": "08347815-eac2-4d29-b8c9-2288eb7bb4b7"
+      "id": "81e89345-09a0-46d9-b9d0-f63ff0aa11db"
     }
   ],
   "connections": {
@@ -925,247 +502,18 @@
       "main": [
         [
           {
-            "node": "4. Wait Before Follow-up #1",
+            "node": "4. Schedule Follow-ups",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "4. Wait Before Follow-up #1": {
+    "4. Schedule Follow-ups": {
       "main": [
         [
           {
-            "node": "4a. Check Engagement",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4a. Check Engagement": {
-      "main": [
-        [
-          {
-            "node": "4b. Engaged After Initial?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4b. Engaged After Initial?": {
-      "main": [
-        [
-          {
-            "node": "6c. Mark Candidate Engaged",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "4c. Compose Follow-up #1",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "5. Wait Before Follow-up #2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4c. Compose Follow-up #1": {
-      "main": [
-        [
-          {
-            "node": "4d. Send Follow-up #1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4d. Send Follow-up #1": {
-      "main": [
-        [
-          {
-            "node": "4e. Log Follow-up #1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4e. Log Follow-up #1": {
-      "main": [
-        [
-          {
-            "node": "4f. Log Follow-up #1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4f. Log Follow-up #1": {
-      "main": [
-        [
-          {
-            "node": "5. Wait Before Follow-up #2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5. Wait Before Follow-up #2": {
-      "main": [
-        [
-          {
-            "node": "5a. Check Engagement",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5a. Check Engagement": {
-      "main": [
-        [
-          {
-            "node": "5b. Engaged After Follow-up #1?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5b. Engaged After Follow-up #1?": {
-      "main": [
-        [
-          {
-            "node": "6c. Mark Candidate Engaged",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "5c. Compose Follow-up #2",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "6. Final Wait",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5c. Compose Follow-up #2": {
-      "main": [
-        [
-          {
-            "node": "5d. Send Follow-up #2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5d. Send Follow-up #2": {
-      "main": [
-        [
-          {
-            "node": "5e. Log Follow-up #2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5e. Log Follow-up #2": {
-      "main": [
-        [
-          {
-            "node": "5f. Log Follow-up #2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5f. Log Follow-up #2": {
-      "main": [
-        [
-          {
-            "node": "6. Final Wait",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6. Final Wait": {
-      "main": [
-        [
-          {
-            "node": "6a. Check Final Engagement",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6a. Check Final Engagement": {
-      "main": [
-        [
-          {
-            "node": "6b. Engaged After Follow-up #2?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6b. Engaged After Follow-up #2?": {
-      "main": [
-        [
-          {
-            "node": "6c. Mark Candidate Engaged",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "6e. Archive Candidate",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6c. Mark Candidate Engaged": {
-      "main": [
-        [
-          {
-            "node": "6d. Result (Engaged)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6e. Archive Candidate": {
-      "main": [
-        [
-          {
-            "node": "6f. Result (Archived)",
+            "node": "5. Result (Scheduled)",
             "type": "main",
             "index": 0
           }
