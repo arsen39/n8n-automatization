@@ -244,9 +244,9 @@
     },
     {
       "parameters": {
-        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\nconst baseUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.token)}&action=unsubscribe`;\nconst lang = subscriber.preferred_lang || 'ru';\nconst greetings = {\n  ru: `Подписка подтверждена${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`,\n  en: `Subscription confirmed${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`,\n  pl: `Subskrypcja potwierdzona${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`\n};\nconst bodies = {\n  ru: `Спасибо, что подтвердили подписку. Управлять настройками: ${baseUrl}. Если хотите отписаться, используйте ${unsubscribeUrl}.`,\n  en: `Thanks for confirming! Manage preferences: ${baseUrl}. To unsubscribe use ${unsubscribeUrl}.`,\n  pl: `Dziękujemy za potwierdzenie! Zarządzaj ustawieniami: ${baseUrl}. Aby się wypisać użyj ${unsubscribeUrl}.`\n};\nconst subject = { ru: 'Подтверждение подписки', en: 'Subscription confirmed', pl: 'Potwierdzenie subskrypcji' }[lang] || 'Subscription confirmed';\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: subscriber.email,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: subscriber.subscriber_id\n  }\n}];"
+        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\n    const template = $('5a. Load Confirm Template').item.json || {};\n    const preferencesUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\n    const unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\n    const unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.token)}&action=unsubscribe`;\n\n    const fullName = subscriber.full_name ? String(subscriber.full_name).trim() : '';\n    const fullNameSuffix = fullName ? `, ${fullName}` : '';\n\n    function applyTemplate(input, variables) {\n      if (typeof input !== 'string') return '';\n      return Object.entries(variables).reduce((acc, [key, value]) => {\n        const safeValue = value == null ? '' : String(value);\n        const pattern = new RegExp(`{{\\s*${key}\\s*}}`, 'g');\n        return acc.replace(pattern, safeValue);\n      }, input);\n    }\n\n    const subjectTemplate = template.subject_template || '';\n    const bodyTemplate = template.body_template || '';\n    if (!subjectTemplate || !bodyTemplate) {\n      throw new Error('Confirmation template is missing subject or body content.');\n    }\n\n    const subject = applyTemplate(subjectTemplate, {\n      preferences_url: preferencesUrl,\n      unsubscribe_url: unsubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyText = applyTemplate(bodyTemplate, {\n      preferences_url: preferencesUrl,\n      unsubscribe_url: unsubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyHtml = bodyText.replace(/\n/g, '<br />');\n\n    return [{\n      json: {\n        email: subscriber.email,\n        subject,\n        body_text: bodyText,\n        body_html: bodyHtml,\n        unsubscribe_url: unsubscribeUrl,\n        preferences_url: preferencesUrl,\n        subscriber_id: subscriber.subscriber_id\n      }\n    }];"
       },
-      "name": "5a. Build Confirm Email",
+      "name": "5b. Compose Confirm Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
@@ -257,18 +257,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
-        "toEmail": "={{ $json.email }}",
+        "sendTo": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "text": "={{ $json.body_text }}",
-        "html": "={{ $json.body_html }}",
-        "options": {}
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "additionalFields": {
+            "htmlMessage": "={{ $json.body_html }}"
+          }
+        }
       },
-      "name": "5b. Send Confirm Email",
+      "name": "5c. Send Confirm Email",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "position": [
         420,
         420
@@ -286,10 +287,10 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_confirmed', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('5a. Build Confirm Email').item.json.body_text, $('5a. Build Confirm Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('5a. Build Confirm Email').item.json.email, $('5a. Build Confirm Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('5b. Compose Confirm Email').item.json.body_text, $('5b. Compose Confirm Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('5b. Compose Confirm Email').item.json.email, $('5b. Compose Confirm Email').item.json.subject ] }}"
         }
       },
-      "name": "5c. Log Confirm Message",
+      "name": "5d. Log Confirm Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -309,10 +310,10 @@
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_confirmed', jsonb_build_object('email', $2, 'confirmed_at', NOW()))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('5a. Build Confirm Email').item.json.email ] }}"
+          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('5b. Compose Confirm Email').item.json.email ] }}"
         }
       },
-      "name": "5d. Log Confirm Event",
+      "name": "5e. Log Confirm Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -341,7 +342,7 @@
           "keepOnlySet": true
         }
       },
-      "name": "5e. Outcome: Confirmed",
+      "name": "5f. Outcome: Confirmed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
@@ -398,9 +399,9 @@
     },
     {
       "parameters": {
-        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\nconst resubscribeUrl = $env.NEWSLETTER_RESUBSCRIBE_URL || 'https://example.com/newsletter';\nconst lang = subscriber.preferred_lang || 'ru';\nconst subjects = { ru: 'Вы отписаны от рассылки', en: 'You have been unsubscribed', pl: 'Zostałeś wypisany z newslettera' };\nconst bodies = {\n  ru: 'Вы успешно отписались. Если это было ошибкой, подпишитесь снова: ' + resubscribeUrl,\n  en: 'You have been unsubscribed. If this was a mistake you can subscribe again here: ' + resubscribeUrl,\n  pl: 'Zostałeś wypisany. Jeśli to pomyłka, zapisz się ponownie: ' + resubscribeUrl\n};\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\nreturn [{ json: { email: subscriber.email, subject, body_text: bodyText, body_html: bodyText.replace(/\n/g, '<br />'), subscriber_id: subscriber.subscriber_id } }];"
+        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\n    const template = $('6a. Load Unsub Template').item.json || {};\n    const resubscribeUrl = $env.NEWSLETTER_RESUBSCRIBE_URL || 'https://example.com/newsletter';\n\n    const fullName = subscriber.full_name ? String(subscriber.full_name).trim() : '';\n    const fullNameSuffix = fullName ? `, ${fullName}` : '';\n\n    function applyTemplate(input, variables) {\n      if (typeof input !== 'string') return '';\n      return Object.entries(variables).reduce((acc, [key, value]) => {\n        const safeValue = value == null ? '' : String(value);\n        const pattern = new RegExp(`{{\\s*${key}\\s*}}`, 'g');\n        return acc.replace(pattern, safeValue);\n      }, input);\n    }\n\n    const subjectTemplate = template.subject_template || '';\n    const bodyTemplate = template.body_template || '';\n    if (!subjectTemplate || !bodyTemplate) {\n      throw new Error('Unsubscribe template is missing subject or body content.');\n    }\n\n    const subject = applyTemplate(subjectTemplate, {\n      resubscribe_url: resubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyText = applyTemplate(bodyTemplate, {\n      resubscribe_url: resubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyHtml = bodyText.replace(/\n/g, '<br />');\n\n    return [{\n      json: {\n        email: subscriber.email,\n        subject,\n        body_text: bodyText,\n        body_html: bodyHtml,\n        resubscribe_url: resubscribeUrl,\n        subscriber_id: subscriber.subscriber_id\n      }\n    }];"
       },
-      "name": "6a. Build Unsub Email",
+      "name": "6b. Compose Unsub Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
@@ -411,18 +412,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
-        "toEmail": "={{ $json.email }}",
+        "sendTo": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "text": "={{ $json.body_text }}",
-        "html": "={{ $json.body_html }}",
-        "options": {}
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "additionalFields": {
+            "htmlMessage": "={{ $json.body_html }}"
+          }
+        }
       },
-      "name": "6b. Send Unsub Email",
+      "name": "6c. Send Unsub Email",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "position": [
         420,
         -20
@@ -440,10 +442,10 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_unsubscribed', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('6a. Build Unsub Email').item.json.body_text, $('6a. Build Unsub Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('6a. Build Unsub Email').item.json.email, $('6a. Build Unsub Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('6b. Compose Unsub Email').item.json.body_text, $('6b. Compose Unsub Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('6b. Compose Unsub Email').item.json.email, $('6b. Compose Unsub Email').item.json.subject ] }}"
         }
       },
-      "name": "6c. Log Unsub Message",
+      "name": "6d. Log Unsub Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -463,10 +465,10 @@
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_unsubscribed', jsonb_build_object('email', $2, 'unsubscribed_at', NOW()))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('6a. Build Unsub Email').item.json.email ] }}"
+          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('6b. Compose Unsub Email').item.json.email ] }}"
         }
       },
-      "name": "6d. Log Unsub Event",
+      "name": "6e. Log Unsub Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
@@ -495,7 +497,7 @@
           "keepOnlySet": true
         }
       },
-      "name": "6e. Outcome: Unsubscribed",
+      "name": "6f. Outcome: Unsubscribed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
       "position": [
@@ -518,6 +520,52 @@
         200
       ],
       "id": "5f6a9cfa-5f2e-4f7f-9157-484b3e5fc2a7"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'newsletter.confirmed.' + ( $('3. Evaluate Subscriber').item.json.preferred_lang || 'ru' ) ] }}"
+        }
+      },
+      "name": "5a. Load Confirm Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        180,
+        540
+      ],
+      "id": "e49a1e1f-ee98-4d04-b765-0fd9f8a09de7",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'newsletter.unsubscribed.' + ( $('3. Evaluate Subscriber').item.json.preferred_lang || 'ru' ) ] }}"
+        }
+      },
+      "name": "6a. Load Unsub Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        180,
+        -160
+      ],
+      "id": "6019496d-1111-4887-9de4-c65c4cd15094",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -682,62 +730,7 @@
       "main": [
         [
           {
-            "node": "5a. Build Confirm Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5a. Build Confirm Email": {
-      "main": [
-        [
-          {
-            "node": "5b. Send Confirm Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5b. Send Confirm Email": {
-      "main": [
-        [
-          {
-            "node": "5c. Log Confirm Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5c. Log Confirm Message": {
-      "main": [
-        [
-          {
-            "node": "5d. Log Confirm Event",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5d. Log Confirm Event": {
-      "main": [
-        [
-          {
-            "node": "5e. Outcome: Confirmed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5e. Outcome: Confirmed": {
-      "main": [
-        [
-          {
-            "node": "7. Respond",
+            "node": "5a. Load Confirm Template",
             "type": "main",
             "index": 0
           }
@@ -748,25 +741,80 @@
       "main": [
         [
           {
-            "node": "6a. Build Unsub Email",
+            "node": "6a. Load Unsub Template",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "6a. Build Unsub Email": {
+    "5b. Compose Confirm Email": {
       "main": [
         [
           {
-            "node": "6b. Send Unsub Email",
+            "node": "5c. Send Confirm Email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "6b. Send Unsub Email": {
+    "5c. Send Confirm Email": {
+      "main": [
+        [
+          {
+            "node": "5c. Log Confirm Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5d. Log Confirm Message": {
+      "main": [
+        [
+          {
+            "node": "5d. Log Confirm Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5e. Log Confirm Event": {
+      "main": [
+        [
+          {
+            "node": "5e. Outcome: Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5f. Outcome: Confirmed": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Compose Unsub Email": {
+      "main": [
+        [
+          {
+            "node": "6c. Send Unsub Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Send Unsub Email": {
       "main": [
         [
           {
@@ -777,7 +825,7 @@
         ]
       ]
     },
-    "6c. Log Unsub Message": {
+    "6d. Log Unsub Message": {
       "main": [
         [
           {
@@ -788,7 +836,7 @@
         ]
       ]
     },
-    "6d. Log Unsub Event": {
+    "6e. Log Unsub Event": {
       "main": [
         [
           {
@@ -799,11 +847,33 @@
         ]
       ]
     },
-    "6e. Outcome: Unsubscribed": {
+    "6f. Outcome: Unsubscribed": {
       "main": [
         [
           {
             "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Load Confirm Template": {
+      "main": [
+        [
+          {
+            "node": "5b. Compose Confirm Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Load Unsub Template": {
+      "main": [
+        [
+          {
+            "node": "6b. Compose Unsub Email",
             "type": "main",
             "index": 0
           }

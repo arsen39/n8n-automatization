@@ -183,9 +183,9 @@
     },
     {
       "parameters": {
-        "functionCode": "const context = $('6. Decide Next Step').item.json;\nconst baseUrl = $env.NEWSLETTER_CONFIRM_URL_BASE || 'https://example.com/newsletter/confirm';\nconst confirmUrl = `${baseUrl}?token=${encodeURIComponent(context.unsubscribe_token)}&action=confirm`;\n\nconst lang = context.preferred_lang || 'ru';\nconst subjects = {\n  ru: 'Подтвердите подписку на рассылку',\n  en: 'Please confirm your newsletter subscription',\n  pl: 'Potwierdź subskrypcję newslettera'\n};\nconst bodies = {\n  ru: `Привет!\n\nЧтобы завершить подписку, перейдите по ссылке: ${confirmUrl}\n\nЕсли вы не оставляли заявку, просто проигнорируйте письмо.`,\n  en: `Hi there!\n\nPlease confirm your subscription by clicking: ${confirmUrl}\n\nIf you didn't request this email, you can ignore it.`,\n  pl: `Cześć!\n\nPotwierdź subskrypcję klikając: ${confirmUrl}\n\nJeśli to nie Ty, zignoruj tę wiadomość.`\n};\n\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: context.email,\n    full_name: context.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    confirm_url: confirmUrl,\n    subscriber_id: context.subscriber_id,\n    contact_id: context.contact_id,\n    meta_kind: 'newsletter_doi'\n  }\n}];"
+        "functionCode": "const context = $('6. Decide Next Step').item.json;\n    const template = $('8a. Load DOI Template').item.json || {};\n    const baseUrl = $env.NEWSLETTER_CONFIRM_URL_BASE || 'https://example.com/newsletter/confirm';\n    const confirmUrl = `${baseUrl}?token=${encodeURIComponent(context.unsubscribe_token)}&action=confirm`;\n\n    const fullName = context.full_name ? String(context.full_name).trim() : '';\n    const fullNameSuffix = fullName ? `, ${fullName}` : '';\n\n    function applyTemplate(input, variables) {\n      if (typeof input !== 'string') return '';\n      return Object.entries(variables).reduce((acc, [key, value]) => {\n        const safeValue = value == null ? '' : String(value);\n        const pattern = new RegExp(`{{\\s*${key}\\s*}}`, 'g');\n        return acc.replace(pattern, safeValue);\n      }, input);\n    }\n\n    const subjectTemplate = template.subject_template || '';\n    const bodyTemplate = template.body_template || '';\n    if (!subjectTemplate || !bodyTemplate) {\n      throw new Error('Newsletter DOI template is missing subject or body content.');\n    }\n\n    const subject = applyTemplate(subjectTemplate, {\n      confirm_url: confirmUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyText = applyTemplate(bodyTemplate, {\n      confirm_url: confirmUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyHtml = bodyText.replace(/\n/g, '<br />');\n\n    return [{\n      json: {\n        email: context.email,\n        full_name: fullName || null,\n        subject,\n        body_text: bodyText,\n        body_html: bodyHtml,\n        confirm_url: confirmUrl,\n        subscriber_id: context.subscriber_id,\n        contact_id: context.contact_id,\n        meta_kind: 'newsletter_doi'\n      }\n    }];"
       },
-      "name": "8. Build DOI Email",
+      "name": "8b. Compose DOI Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
@@ -196,18 +196,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
-        "toEmail": "={{ $json.email }}",
+        "sendTo": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "text": "={{ $json.body_text }}",
-        "html": "={{ $json.body_html }}",
-        "options": {}
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "additionalFields": {
+            "htmlMessage": "={{ $json.body_html }}"
+          }
+        }
       },
       "name": "9. Send DOI Email",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "position": [
         600,
         -160
@@ -225,7 +226,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_doi', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('8. Build DOI Email').item.json.body_text, $('8. Build DOI Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('8. Build DOI Email').item.json.email, $('8. Build DOI Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('8b. Compose DOI Email').item.json.body_text, $('8b. Compose DOI Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('8b. Compose DOI Email').item.json.email, $('8b. Compose DOI Email').item.json.subject ] }}"
         }
       },
       "name": "10. Log DOI Message",
@@ -248,7 +249,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_doi_sent', jsonb_build_object('email', $2, 'subject', $3, 'confirm_url', $4))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('8. Build DOI Email').item.json.email, $('8. Build DOI Email').item.json.subject, $('8. Build DOI Email').item.json.confirm_url ] }}"
+          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('8b. Compose DOI Email').item.json.email, $('8b. Compose DOI Email').item.json.subject, $('8b. Compose DOI Email').item.json.confirm_url ] }}"
         }
       },
       "name": "11. Log DOI Event",
@@ -292,9 +293,9 @@
     },
     {
       "parameters": {
-        "functionCode": "const context = $('6. Decide Next Step').item.json;\nconst baseUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(context.unsubscribe_token)}&action=unsubscribe`;\n\nconst lang = context.preferred_lang || 'ru';\nconst subjects = {\n  ru: 'Добро пожаловать в наш дайджест',\n  en: 'Welcome to our newsletter',\n  pl: 'Witamy w naszym newsletterze'\n};\nconst bodies = {\n  ru: `Привет${context.full_name ? `, ${context.full_name}` : ''}!\n\nСпасибо за подписку. Управлять настройками можно по ссылке ${baseUrl}.\nЕсли хотите отписаться, перейдите по ${unsubscribeUrl}.`,\n  en: `Hi${context.full_name ? `, ${context.full_name}` : ''}!\n\nThanks for subscribing. Manage your preferences here: ${baseUrl}.\nTo unsubscribe use ${unsubscribeUrl}.`,\n  pl: `Cześć${context.full_name ? `, ${context.full_name}` : ''}!\n\nDziękujemy za subskrypcję. Zarządzaj ustawieniami: ${baseUrl}.\nAby się wypisać kliknij ${unsubscribeUrl}.`\n};\n\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: context.email,\n    full_name: context.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    preferences_url: baseUrl,\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: context.subscriber_id,\n    contact_id: context.contact_id,\n    meta_kind: 'newsletter_welcome'\n  }\n}];"
+        "functionCode": "const context = $('6. Decide Next Step').item.json;\n    const template = $('13a. Load Welcome Template').item.json || {};\n    const preferencesUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\n    const unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\n    const unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(context.unsubscribe_token)}&action=unsubscribe`;\n\n    const fullName = context.full_name ? String(context.full_name).trim() : '';\n    const fullNameSuffix = fullName ? `, ${fullName}` : '';\n\n    function applyTemplate(input, variables) {\n      if (typeof input !== 'string') return '';\n      return Object.entries(variables).reduce((acc, [key, value]) => {\n        const safeValue = value == null ? '' : String(value);\n        const pattern = new RegExp(`{{\\s*${key}\\s*}}`, 'g');\n        return acc.replace(pattern, safeValue);\n      }, input);\n    }\n\n    const subjectTemplate = template.subject_template || '';\n    const bodyTemplate = template.body_template || '';\n    if (!subjectTemplate || !bodyTemplate) {\n      throw new Error('Newsletter welcome template is missing subject or body content.');\n    }\n\n    const subject = applyTemplate(subjectTemplate, {\n      preferences_url: preferencesUrl,\n      unsubscribe_url: unsubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyText = applyTemplate(bodyTemplate, {\n      preferences_url: preferencesUrl,\n      unsubscribe_url: unsubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n    });\n\n    const bodyHtml = bodyText.replace(/\n/g, '<br />');\n\n    return [{\n      json: {\n        email: context.email,\n        full_name: fullName || null,\n        subject,\n        body_text: bodyText,\n        body_html: bodyHtml,\n        preferences_url: preferencesUrl,\n        unsubscribe_url: unsubscribeUrl,\n        subscriber_id: context.subscriber_id,\n        contact_id: context.contact_id,\n        meta_kind: 'newsletter_welcome'\n      }\n    }];"
       },
-      "name": "13. Build Welcome Email",
+      "name": "13b. Compose Welcome Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
@@ -305,18 +306,19 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
-        "toEmail": "={{ $json.email }}",
+        "sendTo": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "text": "={{ $json.body_text }}",
-        "html": "={{ $json.body_html }}",
-        "options": {}
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "additionalFields": {
+            "htmlMessage": "={{ $json.body_html }}"
+          }
+        }
       },
       "name": "14. Send Welcome Email",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
+      "typeVersion": 2.1,
       "position": [
         840,
         200
@@ -334,7 +336,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_welcome', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('13. Build Welcome Email').item.json.body_text, $('13. Build Welcome Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('13. Build Welcome Email').item.json.email, $('13. Build Welcome Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('13b. Compose Welcome Email').item.json.body_text, $('13b. Compose Welcome Email').item.json.body_html, $('6. Decide Next Step').item.json.subscriber_id, $('13b. Compose Welcome Email').item.json.email, $('13b. Compose Welcome Email').item.json.subject ] }}"
         }
       },
       "name": "15. Log Welcome Message",
@@ -357,7 +359,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_welcome_sent', jsonb_build_object('email', $2, 'subject', $3, 'preferences_url', $4, 'unsubscribe_url', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('13. Build Welcome Email').item.json.email, $('13. Build Welcome Email').item.json.subject, $('13. Build Welcome Email').item.json.preferences_url, $('13. Build Welcome Email').item.json.unsubscribe_url ] }}"
+          "queryReplacement": "={{ [ $('6. Decide Next Step').item.json.subscriber_id, $('13b. Compose Welcome Email').item.json.email, $('13b. Compose Welcome Email').item.json.subject, $('13b. Compose Welcome Email').item.json.preferences_url, $('13b. Compose Welcome Email').item.json.unsubscribe_url ] }}"
         }
       },
       "name": "16. Log Welcome Event",
@@ -415,6 +417,52 @@
         40
       ],
       "id": "0092b1c8-ace7-4b87-a0a2-2327baafccc2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'newsletter.doi.' + ( $('6. Decide Next Step').item.json.preferred_lang || 'ru' ) ] }}"
+        }
+      },
+      "name": "8a. Load DOI Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        360,
+        -320
+      ],
+      "id": "7983aa08-0509-4a45-8b5b-1ce3a47e3f27",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'newsletter.welcome.' + ( $('6. Decide Next Step').item.json.preferred_lang || 'ru' ) ] }}"
+        }
+      },
+      "name": "13a. Load Welcome Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        600,
+        40
+      ],
+      "id": "2d040543-5ecf-4bea-b656-e9122d40d5c6",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -544,7 +592,7 @@
       "main": [
         [
           {
-            "node": "8. Build DOI Email",
+            "node": "8a. Load DOI Template",
             "type": "main",
             "index": 0
           }
@@ -554,17 +602,6 @@
         [
           {
             "node": "12. Send Welcome?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "8. Build DOI Email": {
-      "main": [
-        [
-          {
-            "node": "9. Send DOI Email",
             "type": "main",
             "index": 0
           }
@@ -608,7 +645,7 @@
       "main": [
         [
           {
-            "node": "13. Build Welcome Email",
+            "node": "13a. Load Welcome Template",
             "type": "main",
             "index": 0
           }
@@ -618,17 +655,6 @@
         [
           {
             "node": "17. Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "13. Build Welcome Email": {
-      "main": [
-        [
-          {
-            "node": "14. Send Welcome Email",
             "type": "main",
             "index": 0
           }
@@ -662,6 +688,50 @@
         [
           {
             "node": "17. Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8b. Compose DOI Email": {
+      "main": [
+        [
+          {
+            "node": "9. Send DOI Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13b. Compose Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "14. Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8a. Load DOI Template": {
+      "main": [
+        [
+          {
+            "node": "8b. Compose DOI Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13a. Load Welcome Template": {
+      "main": [
+        [
+          {
+            "node": "13b. Compose Welcome Email",
             "type": "main",
             "index": 0
           }

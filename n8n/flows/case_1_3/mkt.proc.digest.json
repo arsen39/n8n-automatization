@@ -6,7 +6,9 @@
           "interval": [
             {
               "field": "weeks",
-              "triggerAtDay": [1],
+              "triggerAtDay": [
+                1
+              ],
               "triggerAtHour": 9
             }
           ]
@@ -15,7 +17,10 @@
       "name": "[START] Weekly Digest",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [-336, 576],
+      "position": [
+        -336,
+        576
+      ],
       "id": "9b46d0c9-eabe-483d-9f10-fd5b661358df"
     },
     {
@@ -28,7 +33,10 @@
       "name": "1. Fetch Digest Feed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 2,
-      "position": [-64, 576],
+      "position": [
+        -64,
+        576
+      ],
       "id": "3cad0e78-53f9-4a36-a5bb-8a45e3eab10a"
     },
     {
@@ -38,7 +46,10 @@
       "name": "2. Normalize Feed",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [208, 576],
+      "position": [
+        208,
+        576
+      ],
       "id": "3ae67632-d154-43bc-bf64-2933cb0b092e"
     },
     {
@@ -61,20 +72,29 @@
       "name": "3. Has Content?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [448, 576],
+      "position": [
+        448,
+        576
+      ],
       "id": "7c0003ab-695c-4fa8-903c-3b952b671b82"
     },
     {
       "parameters": {
         "fields": {
-          "values": [{}, {}]
+          "values": [
+            {},
+            {}
+          ]
         },
         "options": {}
       },
       "name": "3a. Outcome: No Content",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [640, 368],
+      "position": [
+        640,
+        368
+      ],
       "id": "bcbdaa2d-8c57-4e2a-9340-d77a8875871b"
     },
     {
@@ -86,7 +106,10 @@
       "name": "4. Count Recipients",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [640, 688],
+      "position": [
+        640,
+        688
+      ],
       "id": "2d669a87-5bfa-4241-a6a5-c21cee963954",
       "credentials": {
         "postgres": {
@@ -115,20 +138,29 @@
       "name": "5. Has Recipients?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [880, 688],
+      "position": [
+        880,
+        688
+      ],
       "id": "dce67809-f890-45b8-872a-1481e8ddb033"
     },
     {
       "parameters": {
         "fields": {
-          "values": [{}, {}]
+          "values": [
+            {},
+            {}
+          ]
         },
         "options": {}
       },
       "name": "5a. Outcome: No Recipients",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [1088, 448],
+      "position": [
+        1088,
+        448
+      ],
       "id": "23eee817-dd85-4fc4-a537-e3e9e507289b"
     },
     {
@@ -140,7 +172,10 @@
       "name": "6. Load Subscribers",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1120, 816],
+      "position": [
+        1120,
+        816
+      ],
       "id": "d743bc21-6182-478b-9dc0-7eb30173f7ad",
       "credentials": {
         "postgres": {
@@ -157,29 +192,44 @@
       "name": "7. Split Subscribers",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 1,
-      "position": [1392, 816],
+      "position": [
+        1392,
+        816
+      ],
       "id": "58cf567d-e7a1-45da-8a8e-b235bf8ed791"
     },
     {
       "parameters": {
-        "functionCode": "const subscriber = $json;\nconst feed = $('2. Normalize Feed').item.json;\nconst items = Array.isArray(feed.items) ? feed.items : [];\nconst lang = subscriber.preferred_lang || 'ru';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.unsubscribe_token)}&action=unsubscribe`;\nconst introByLang = {\n  ru: 'Свежие материалы за последние дни:',\n  en: 'Fresh updates for you:',\n  pl: 'Najnowsze materiały dla Ciebie:'\n};\nconst outroByLang = {\n  ru: `Можно управлять подпиской: ${unsubscribeUrl}`,\n  en: `Manage your subscription: ${unsubscribeUrl}`,\n  pl: `Zarządzaj subskrypcją: ${unsubscribeUrl}`\n};\n\nconst bulletList = items.map((item, idx) => {\n  const index = idx + 1;\n  const title = item.title || `Материал ${index}`;\n  const url = item.url ? `${index}. ${title} — ${item.url}` : `${index}. ${title}`;\n  return url;\n}).join('\n');\n\nconst subjectPrefix = $env.NEWSLETTER_DIGEST_SUBJECT_PREFIX || '[Digest]';\nconst subject = `${subjectPrefix} ${feed.generated_at?.slice(0, 10) || ''}`.trim();\n\nconst bodyText = `${introByLang[lang] || introByLang.en}\n\n${bulletList}\n\n${outroByLang[lang] || outroByLang.en}`;\n\nreturn [{\n  json: {\n    email: subscriber.email,\n    full_name: subscriber.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: subscriber.subscriber_id,\n    items_sent: items.length\n  }\n}];"
+        "functionCode": "const subscriber = $('7. Split Subscribers').item.json;\n    const feed = $('2. Normalize Feed').item.json || {};\n    const template = $('8a. Load Digest Template').item.json || {};\n\n    const items = Array.isArray(feed.items) ? feed.items : [];\n    const lang = subscriber.preferred_lang || 'ru';\n    const unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\n    const unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.unsubscribe_token)}&action=unsubscribe`;\n\n    const fullName = subscriber.full_name ? String(subscriber.full_name).trim() : '';\n    const fullNameSuffix = fullName ? `, ${fullName}` : '';\n\n    const greetings = {\n      ru: '\u0421\u0432\u0435\u0436\u0438\u0435 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b\u044b \u0437\u0430 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0435 \u0434\u043d\u0438',\n      en: 'Fresh updates for you',\n      pl: 'Najnowsze materia\u0142y dla Ciebie'\n    };\n\n    const greetingLine = `${greetings[lang] || greetings.en}${fullNameSuffix}:`;\n\n    const bulletList = items.map((item, idx) => {\n      const index = idx + 1;\n      const title = item.title || `\u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b ${index}`;\n      return item.url ? `${index}. ${title} \u2014 ${item.url}` : `${index}. ${title}`;\n    }).join('\n');\n\n    function applyTemplate(input, variables) {\n      if (typeof input !== 'string') return '';\n      return Object.entries(variables).reduce((acc, [key, value]) => {\n        const safeValue = value == null ? '' : String(value);\n        const pattern = new RegExp(`{{\\s*${key}\\s*}}`, 'g');\n        return acc.replace(pattern, safeValue);\n      }, input);\n    }\n\n    const subjectTemplate = template.subject_template || '';\n    const bodyTemplate = template.body_template || '';\n    if (!subjectTemplate || !bodyTemplate) {\n      throw new Error('Digest template is missing subject or body content.');\n    }\n\n    const generatedAt = (feed.generated_at || new Date().toISOString()).slice(0, 10);\n\n    const subject = applyTemplate(subjectTemplate, {\n      generated_date: generatedAt,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n      items_count: items.length\n    });\n\n    const bodyText = applyTemplate(bodyTemplate, {\n      greeting_line: greetingLine,\n      items_block: bulletList,\n      unsubscribe_url: unsubscribeUrl,\n      full_name: fullName,\n      full_name_suffix: fullNameSuffix,\n      items_count: items.length\n    });\n\n    const bodyHtml = bodyText.replace(/\n/g, '<br />');\n\n    return [{\n      json: {\n        email: subscriber.email,\n        full_name: fullName || null,\n        subject,\n        body_text: bodyText,\n        body_html: bodyHtml,\n        unsubscribe_url: unsubscribeUrl,\n        subscriber_id: subscriber.subscriber_id,\n        items_sent: items.length\n      }\n    }];"
       },
-      "name": "8. Prepare Digest Email",
+      "name": "8b. Compose Digest Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1632, 816],
+      "position": [
+        1632,
+        816
+      ],
       "id": "5ce4a361-1de6-4557-ae54-9ebfc9e5c940"
     },
     {
       "parameters": {
-        "resource": "message",
+        "sendTo": "={{ $json.email }}",
         "subject": "={{ $json.subject }}",
-        "additionalFields": {}
+        "message": "={{ $json.body_text }}",
+        "options": {
+          "appendAttribution": false,
+          "additionalFields": {
+            "htmlMessage": "={{ $json.body_html }}"
+          }
+        }
       },
       "name": "9. Send Digest Email",
       "type": "n8n-nodes-base.gmail",
-      "typeVersion": 1,
-      "position": [1872, 816],
+      "typeVersion": 2.1,
+      "position": [
+        1872,
+        816
+      ],
       "id": "da3babeb-a31a-4b52-b0d4-4bfb7612d385"
     },
     {
@@ -187,13 +237,16 @@
         "operation": "executeQuery",
         "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_digest', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.body_text, $('8. Prepare Digest Email').item.json.body_html, $('8. Prepare Digest Email').item.json.subscriber_id, $('8. Prepare Digest Email').item.json.email, $('8. Prepare Digest Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('8b. Compose Digest Email').item.json.body_text, $('8b. Compose Digest Email').item.json.body_html, $('8b. Compose Digest Email').item.json.subscriber_id, $('8b. Compose Digest Email').item.json.email, $('8b. Compose Digest Email').item.json.subject ] }}"
         }
       },
       "name": "10. Log Digest Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2112, 816],
+      "position": [
+        2112,
+        816
+      ],
       "id": "a51eb672-a0b7-49b9-b121-021f500415a8",
       "credentials": {
         "postgres": {
@@ -207,13 +260,16 @@
         "operation": "executeQuery",
         "query": "UPDATE newsletter_subscribers\nSET last_sent_at = NOW(), updated_at = NOW()\nWHERE id = $1::uuid\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.subscriber_id ] }}"
+          "queryReplacement": "={{ [ $('8b. Compose Digest Email').item.json.subscriber_id ] }}"
         }
       },
       "name": "11. Update Last Sent",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2352, 816],
+      "position": [
+        2352,
+        816
+      ],
       "id": "3004ab04-3b60-42fd-9fa7-2b8afe53fec5",
       "credentials": {
         "postgres": {
@@ -227,13 +283,16 @@
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_digest_sent', jsonb_build_object('items', $2::int, 'subject', $3, 'sent_at', NOW()))\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.subscriber_id, $('8. Prepare Digest Email').item.json.items_sent, $('8. Prepare Digest Email').item.json.subject ] }}"
+          "queryReplacement": "={{ [ $('8b. Compose Digest Email').item.json.subscriber_id, $('8b. Compose Digest Email').item.json.items_sent, $('8b. Compose Digest Email').item.json.subject ] }}"
         }
       },
       "name": "12. Log Digest Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2592, 816],
+      "position": [
+        2592,
+        816
+      ],
       "id": "1422d1ab-d4bb-48d4-8492-91dfaa59a667",
       "credentials": {
         "postgres": {
@@ -250,7 +309,10 @@
       "name": "13. Rate Limit Wait",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [2832, 816],
+      "position": [
+        2832,
+        816
+      ],
       "id": "37f9aa19-0340-441a-aaa5-6786d7c1c59a",
       "webhookId": "195ccbcd-9e8b-440b-8cb3-2bb33da76c05"
     },
@@ -261,7 +323,10 @@
       "name": "14. Outcome: Summary",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1744, 1056],
+      "position": [
+        1744,
+        1056
+      ],
       "id": "80e97f17-c72e-4113-a280-e687f1ee4904"
     },
     {
@@ -271,8 +336,34 @@
       "name": "15. Return Digest Result",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [2032, 1008],
+      "position": [
+        2032,
+        1008
+      ],
       "id": "fb648884-68bc-42e5-b2e7-d7002656c264"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT subject_template, body_template FROM templates WHERE name = $1;",
+        "options": {
+          "queryReplacement": "={{ [ 'newsletter.digest.' + ( $('7. Split Subscribers').item.json.preferred_lang || 'ru' ) ] }}"
+        }
+      },
+      "name": "8a. Load Digest Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1632,
+        656
+      ],
+      "id": "cb46f93c-e42d-4666-a4c6-c2a8518a7f2c",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
     }
   ],
   "connections": {
@@ -389,18 +480,7 @@
       "main": [
         [
           {
-            "node": "8. Prepare Digest Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "8. Prepare Digest Email": {
-      "main": [
-        [
-          {
-            "node": "9. Send Digest Email",
+            "node": "8a. Load Digest Template",
             "type": "main",
             "index": 0
           }
@@ -467,6 +547,28 @@
         [
           {
             "node": "15. Return Digest Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8b. Compose Digest Email": {
+      "main": [
+        [
+          {
+            "node": "9. Send Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8a. Load Digest Template": {
+      "main": [
+        [
+          {
+            "node": "8b. Compose Digest Email",
             "type": "main",
             "index": 0
           }
