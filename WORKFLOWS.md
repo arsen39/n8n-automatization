@@ -103,3 +103,59 @@
 - **Настроить тексты:** изменяем шаблоны в таблице `templates` либо тексты в `Code` нодах follow-up'ов.
 
 Диагностика: все ветки защищены идемпотентными INSERT/UPDATE, поэтому повторный запуск воркфлоу безопасен (дубли не создаются).
+
+---
+
+# Кейс 1.2 — Обработка отклика на вакансию
+
+Ниже описана связка воркфлоу, которая превращает входящее резюме в «управляемый» HR-пайплайн с NDA, задачами и отложенными фоллоуапами.
+
+## Общая цепочка
+
+| Шаг | Воркфлоу | Назначение |
+| --- | --- | --- |
+| 1 | `crm.in.forms` | Принимает заявку кандидата, нормализует профиль, определяет intent=`candidate`, передает данные в HR-процесс. |
+| 2 | `hr.proc.vacancy` | Создает/обновляет профиль кандидата, отправляет NDA, ведёт e-mail nurture на 2–3 недели, обновляет стадию. |
+| 3 | `ops.doc.send_nda` | Повторно используется для генерации и логирования NDA (Chaindoc) по входящему lead_id. |
+
+Основные таблицы: `candidate_profiles`, `candidate_pool_members`, `messages`, `tasks`, `pipeline_events`, `leads`.
+
+---
+
+## Изменения в `crm.in.forms`
+
+- AI-парсер теперь возвращает структурированный блок `candidate_profile` (skills/ставки/наличие CV) и подсказки по пулам.
+- Для `intent=candidate` или `form_code='vacancy'` тип лида сохраняется как `candidate`, а не принудительно `client`.
+- Добавлен саб-процесс: ветка `8a-b. Is Candidate Intent?` вызывает `hr.proc.vacancy` и логирует результат (`vacancy_processor_triggered/failed`).
+
+---
+
+## `hr.proc.vacancy`
+
+**Триггер:** `Execute Workflow` из `crm.in.forms` с намерением `candidate`.
+
+**Что делает:**
+
+1. **Подготовка контекста:** нормализует профиль (skills, ставки, availability), подбирает пул(ы) (`React Senior`, `Middle Talent Pool` и т.п.), генерирует ссылку NDA (`nda-<lead_id>`), фиксирует языковые настройки.
+2. **Upsert в БД:**
+   - `candidate_profiles` — idempotent upsert по `contact_id`;
+   - `candidate_pool_members` — добавляет/обновляет статус (`prospect`/`active`), создаёт пул если его ещё нет;
+   - `tasks` — открытые `review_estimate` (+2 дня) и `add_to_pool` (+7 дней) только если их ещё не было.
+3. **NDA:** вызывает `ops.doc.send_nda` синхронно (`waitForSubWorkflow=true`) и переводит стадию `leads.stage` → `nurturing`.
+4. **Первичный контакт:** humanized `Wait` (4–9 минут), локализованный e-mail (RU/EN) с ссылкой на NDA, лог в `messages` и `pipeline_events`.
+5. **Follow-up каскад:**
+   - `Wait` 5 дней → `Check Engagement` (есть ли входящий ответ/NDA signed); при успехе — `leads.stage='in_pool'`, `candidate_pool_members.status='active'`, `pipeline_events: vacancy_candidate_engaged`.
+   - Если нет ответа — формирует follow-up #1, логирует письмо, снова `Wait` 7 дней и повторяет проверку.
+   - Аналогично follow-up #2 (ещё через 7 дней) с финальной проверкой.
+6. **Архивация:** если после двух напоминаний кандидат не проявил активность, стадия → `archived`, пул помечается `archived`, таски закрываются, событие `vacancy_candidate_archived` (reason=`no_response_after_followup_2`).
+
+**Выходные данные:**
+
+- Для `Execute Workflow` возвращается краткий статус (`engaged`/`archived`), `lead_id`, `candidate_profile_id`, `checkpoint` и количество отправленных follow-up сообщений.
+
+**Как использовать HR/оператору:**
+
+- **Профиль кандидата:** таблица `candidate_profiles` + привязанные `candidate_pool_members` показывают актуальный статус.
+- **Коммуникация:** вся переписка логируется в `messages` (meta.kind=`hr_initial|hr_followup_1|hr_followup_2`).
+- **Задачи:** открытые задачи по лиду (`review_estimate`, `add_to_pool`) сигнализируют, что нужен ручной review или «приземление» в пул.
+- **Архив/успех:** события в `pipeline_events` (`vacancy_candidate_engaged` / `vacancy_candidate_archived`) и финальная стадия лида отражают итог nurture-цикла.
