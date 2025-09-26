@@ -5,7 +5,10 @@
       "name": "[START] Sub-workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [-656, 352],
+      "position": [
+        -656,
+        352
+      ],
       "id": "3d5c498d-bf50-4576-942e-655c9dcceb34"
     },
     {
@@ -80,7 +83,10 @@
       "name": "0. Ctx & Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-448, 352],
+      "position": [
+        -448,
+        352
+      ],
       "id": "8de1e8bc-a5cf-4b72-b619-396713c267d2"
     },
     {
@@ -94,7 +100,10 @@
       "name": "1a. Load Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-240, 352],
+      "position": [
+        -240,
+        352
+      ],
       "id": "2245b890-626a-460f-8db5-dcca3b6e652c",
       "alwaysOutputData": true,
       "credentials": {
@@ -107,18 +116,26 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1a. Load Template').item.json.subject_template }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('1a. Load Template').item.json.subject_template }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "1b. IF: Template Found?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [-48, 352],
+      "typeVersion": 2.2,
+      "position": [
+        -48,
+        352
+      ],
       "id": "7348b6a7-f04e-499f-a54e-5621779afac2"
     },
     {
@@ -132,7 +149,10 @@
       "name": "1c-fallback. Load Fallback",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [224, 464],
+      "position": [
+        224,
+        464
+      ],
       "id": "aaee2c2e-b589-406a-aab0-abf386846cce",
       "credentials": {
         "postgres": {
@@ -164,7 +184,10 @@
       "name": "1d-prep. Prepare AI Prompt Vars",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [432, 464],
+      "position": [
+        432,
+        464
+      ],
       "id": "2208a1d5-73ab-4450-8ddd-d4025ae6d830"
     },
     {
@@ -191,7 +214,10 @@
       "name": "1d-translate. AI Translate Template",
       "type": "@n8n/n8n-nodes-langchain.anthropic",
       "typeVersion": 1,
-      "position": [640, 464],
+      "position": [
+        640,
+        464
+      ],
       "id": "6ea2ee71-2d29-4d49-892e-2ba45d2b144e",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -208,7 +234,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [976, 464],
+      "position": [
+        976,
+        464
+      ],
       "name": "1e. Parse AI JSON",
       "id": "8b94fa7c-6bbd-42c6-b268-37d8289bbc92"
     },
@@ -235,7 +264,10 @@
       "name": "1f. Shape 'True' Path Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [224, 256],
+      "position": [
+        224,
+        256
+      ],
       "id": "83d339a1-c34c-4eeb-8d3e-8bd5fa17bb77"
     },
     {
@@ -249,7 +281,10 @@
       "name": "2. Merge Template Branches",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [1216, 272],
+      "position": [
+        1216,
+        272
+      ],
       "id": "2a09e3f0-b967-4658-a69e-b6a1896f48dc"
     },
     {
@@ -259,7 +294,10 @@
       "name": "2b. Compose Reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1440, 272],
+      "position": [
+        1440,
+        272
+      ],
       "id": "89882a14-0aa0-44be-8c16-ef50063f4570"
     },
     {
@@ -268,7 +306,10 @@
       },
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1648, 272],
+      "position": [
+        1648,
+        272
+      ],
       "id": "ee0c4214-1940-4eef-9362-15dc394751b7",
       "name": "Wait",
       "webhookId": "0ed5fff5-199e-4b43-aaa1-efaddd42c30a"
@@ -284,7 +325,10 @@
       },
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [1856, 272],
+      "position": [
+        1856,
+        272
+      ],
       "id": "9e3a57ec-dd4c-47a5-b868-7fd43d1b8050",
       "name": "3. Send a message",
       "webhookId": "8396ef9f-dbc4-4313-87c9-62f41f0fd358",
@@ -306,7 +350,10 @@
       "name": "4b. Log Outbound Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2064, 272],
+      "position": [
+        2064,
+        272
+      ],
       "id": "fd5fa3af-b0ee-4243-a927-9f3af9d82e8f",
       "credentials": {
         "postgres": {
@@ -326,7 +373,10 @@
       "name": "4c. Add Tag to Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2272, 272],
+      "position": [
+        2272,
+        272
+      ],
       "id": "b2cbb76e-1242-443a-b363-e76cc69dc3cb",
       "credentials": {
         "postgres": {

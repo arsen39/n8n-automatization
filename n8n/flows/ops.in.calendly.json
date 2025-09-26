@@ -40,17 +40,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1. Validate & Parse').item.json.event_type }}",
-              "value2": "invitee.created"
+              "leftValue": "={{ $('1. Validate & Parse').item.json.event_type }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "invitee.created"
             }
           ]
         }
       },
       "name": "3. IF: Event Type?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -1152,
         -176
@@ -224,17 +229,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('2. Find Lead by Email').item.json.lead_id }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('2. Find Lead by Email').item.json.lead_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "3. IF: Lead exist",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -1408,
         -176
