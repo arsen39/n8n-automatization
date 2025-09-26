@@ -1,0 +1,818 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "={{ $env.NEWSLETTER_UNSUB_METHOD || 'GET' }}",
+        "path": "newsletter/manage",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "name": "[START] Newsletter Manage",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1880,
+        -60
+      ],
+      "id": "1f88c455-6107-425f-8664-d0650a135a64"
+    },
+    {
+      "parameters": {
+        "functionCode": "const request = items[0]?.json ?? {};\nconst query = request.query || {};\nconst body = request.body || {};\nconst params = request.params || {};\n\nconst token = String(query.token || body.token || params.token || '').trim();\nconst actionRaw = String(query.action || body.action || params.action || 'unsubscribe').trim().toLowerCase();\nconst action = ['confirm', 'unsubscribe'].includes(actionRaw) ? actionRaw : 'unsubscribe';\n\nreturn [{\n  json: {\n    token,\n    action,\n    request\n  }\n}];"
+      },
+      "name": "1. Extract Token",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1600,
+        -60
+      ],
+      "id": "88c08337-392f-4b83-81db-19e76921f206"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.token }}",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ]
+        }
+      },
+      "name": "1a. Token Provided?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1380,
+        -60
+      ],
+      "id": "604b72c1-37a6-4dd1-a06d-01fbdabe1300"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "missing_token"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "1b. Outcome: Missing Token",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -1180,
+        -220
+      ],
+      "id": "c09fe4f2-4f1a-48b8-ac6c-ed9b031ca134"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH subscriber AS (\n  SELECT\n    ns.id AS subscriber_id,\n    ns.contact_id,\n    ns.status,\n    ns.double_opt_in_required,\n    ns.confirmed_at,\n    ns.unsubscribed_at,\n    ns.unsubscribe_token,\n    c.email,\n    c.full_name,\n    COALESCE(NULLIF(c.preferred_lang, ''), 'ru') AS preferred_lang\n  FROM newsletter_subscribers ns\n  JOIN contacts c ON c.id = ns.contact_id\n  WHERE ns.unsubscribe_token = $1\n  LIMIT 1\n),\nfallback AS (\n  SELECT\n    NULL::uuid AS subscriber_id,\n    NULL::uuid AS contact_id,\n    NULL::subscriber_status AS status,\n    FALSE AS double_opt_in_required,\n    NULL::timestamptz AS confirmed_at,\n    NULL::timestamptz AS unsubscribed_at,\n    NULL::text AS unsubscribe_token,\n    NULL::text AS email,\n    NULL::text AS full_name,\n    'ru'::text AS preferred_lang\n  WHERE NOT EXISTS (SELECT 1 FROM subscriber)\n)\nSELECT * FROM subscriber\nUNION ALL\nSELECT * FROM fallback;",
+        "options": {
+          "queryReplacement": "={{ [ $('1. Extract Token').item.json.token ] }}"
+        }
+      },
+      "name": "2. Lookup Subscriber",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1180,
+        100
+      ],
+      "id": "36ed1a89-477e-4cfd-8fd8-e7252ff4942d",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const tokenContext = $('1. Extract Token').item.json;\nconst row = $json || {};\nconst found = !!row.subscriber_id;\nreturn [{\n  json: {\n    ...row,\n    token: tokenContext.token,\n    action: tokenContext.action,\n    found\n  }\n}];"
+      },
+      "name": "3. Evaluate Subscriber",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        100
+      ],
+      "id": "fd0ed85d-8c0c-450d-8f48-b3c81202250b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.found }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "isTrue"
+              }
+            }
+          ]
+        }
+      },
+      "name": "3a. Subscriber Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -740,
+        100
+      ],
+      "id": "1644a1f7-b958-4d46-b4ed-32348bc52716"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "not_found"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "3b. Outcome: Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -520,
+        -60
+      ],
+      "id": "2c7beaf6-bea7-4e46-9d5c-4d0d8336da5b"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "confirm"
+            }
+          ]
+        }
+      },
+      "name": "4. Confirm Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -520,
+        220
+      ],
+      "id": "39bcfb0b-d10f-455b-94da-760585ae4924"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "pending_opt_in"
+            }
+          ]
+        }
+      },
+      "name": "4a. Pending Opt-In?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        320
+      ],
+      "id": "00d07b8d-723f-44f4-8123-2b4381ddc43b"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE newsletter_subscribers\nSET status = 'subscribed', confirmed_at = NOW(), unsubscribed_at = NULL, updated_at = NOW()\nWHERE id = $1::uuid\nRETURNING id, contact_id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.subscriber_id ] }}"
+        }
+      },
+      "name": "5. Confirm Subscriber",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -60,
+        420
+      ],
+      "id": "3d0f23be-f67f-47e7-bb9c-cfcc323f4f88",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\nconst baseUrl = $env.NEWSLETTER_PREFERENCES_URL || 'https://example.com/newsletter/manage';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.token)}&action=unsubscribe`;\nconst lang = subscriber.preferred_lang || 'ru';\nconst greetings = {\n  ru: `Подписка подтверждена${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`,\n  en: `Subscription confirmed${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`,\n  pl: `Subskrypcja potwierdzona${subscriber.full_name ? `, ${subscriber.full_name}` : ''}!`\n};\nconst bodies = {\n  ru: `Спасибо, что подтвердили подписку. Управлять настройками: ${baseUrl}. Если хотите отписаться, используйте ${unsubscribeUrl}.`,\n  en: `Thanks for confirming! Manage preferences: ${baseUrl}. To unsubscribe use ${unsubscribeUrl}.`,\n  pl: `Dziękujemy za potwierdzenie! Zarządzaj ustawieniami: ${baseUrl}. Aby się wypisać użyj ${unsubscribeUrl}.`\n};\nconst subject = { ru: 'Подтверждение подписки', en: 'Subscription confirmed', pl: 'Potwierdzenie subskrypcji' }[lang] || 'Subscription confirmed';\nconst bodyText = bodies[lang] || bodies.en;\n\nreturn [{\n  json: {\n    email: subscriber.email,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: subscriber.subscriber_id\n  }\n}];"
+      },
+      "name": "5a. Build Confirm Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        180,
+        420
+      ],
+      "id": "61027f1b-7c40-4f81-862a-8bd7aa4c8a74"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body_text }}",
+        "html": "={{ $json.body_html }}",
+        "options": {}
+      },
+      "name": "5b. Send Confirm Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        420,
+        420
+      ],
+      "id": "2ccbab6c-a5ca-4af7-8dd2-750fec56cdf8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WQjBT9KV8K1F6bNi",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_confirmed', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('5a. Build Confirm Email').item.json.body_text, $('5a. Build Confirm Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('5a. Build Confirm Email').item.json.email, $('5a. Build Confirm Email').item.json.subject ] }}"
+        }
+      },
+      "name": "5c. Log Confirm Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        420
+      ],
+      "id": "410b51e6-338d-4025-86ea-1dd3e1f875dc",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_confirmed', jsonb_build_object('email', $2, 'confirmed_at', NOW()))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('5a. Build Confirm Email').item.json.email ] }}"
+        }
+      },
+      "name": "5d. Log Confirm Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        900,
+        420
+      ],
+      "id": "a7add3b4-3ea4-4ba6-8437-5e155c9e4387",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "confirmed"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "5e. Outcome: Confirmed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1140,
+        420
+      ],
+      "id": "0a4a5d9b-3c6b-4e0a-8cb0-0cf6f0c18844"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "already_confirmed"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "4b. Outcome: Already Confirmed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -60,
+        220
+      ],
+      "id": "729edcf3-589b-4795-843e-4130f831450e"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE newsletter_subscribers\nSET status = 'unsubscribed', unsubscribed_at = NOW(), updated_at = NOW()\nWHERE id = $1::uuid\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id ] }}"
+        }
+      },
+      "name": "6. Mark Unsubscribed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -60,
+        -20
+      ],
+      "id": "c8690283-fc16-4caa-9591-6647a39560ce",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const subscriber = $('3. Evaluate Subscriber').item.json;\nconst resubscribeUrl = $env.NEWSLETTER_RESUBSCRIBE_URL || 'https://example.com/newsletter';\nconst lang = subscriber.preferred_lang || 'ru';\nconst subjects = { ru: 'Вы отписаны от рассылки', en: 'You have been unsubscribed', pl: 'Zostałeś wypisany z newslettera' };\nconst bodies = {\n  ru: 'Вы успешно отписались. Если это было ошибкой, подпишитесь снова: ' + resubscribeUrl,\n  en: 'You have been unsubscribed. If this was a mistake you can subscribe again here: ' + resubscribeUrl,\n  pl: 'Zostałeś wypisany. Jeśli to pomyłka, zapisz się ponownie: ' + resubscribeUrl\n};\nconst subject = subjects[lang] || subjects.en;\nconst bodyText = bodies[lang] || bodies.en;\nreturn [{ json: { email: subscriber.email, subject, body_text: bodyText, body_html: bodyText.replace(/\n/g, '<br />'), subscriber_id: subscriber.subscriber_id } }];"
+      },
+      "name": "6a. Build Unsub Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -20
+      ],
+      "id": "a887ad1b-ad4f-4942-bfc7-1e68ec2867df"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body_text }}",
+        "html": "={{ $json.body_html }}",
+        "options": {}
+      },
+      "name": "6b. Send Unsub Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        420,
+        -20
+      ],
+      "id": "9ff6a951-7a3b-4c29-8dda-3338100c8259",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WQjBT9KV8K1F6bNi",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_unsubscribed', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('6a. Build Unsub Email').item.json.body_text, $('6a. Build Unsub Email').item.json.body_html, $('3. Evaluate Subscriber').item.json.subscriber_id, $('6a. Build Unsub Email').item.json.email, $('6a. Build Unsub Email').item.json.subject ] }}"
+        }
+      },
+      "name": "6c. Log Unsub Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        -20
+      ],
+      "id": "a451d7ec-cf5d-4d4f-9d32-068a821a3fd5",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_unsubscribed', jsonb_build_object('email', $2, 'unsubscribed_at', NOW()))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('3. Evaluate Subscriber').item.json.subscriber_id, $('6a. Build Unsub Email').item.json.email ] }}"
+        }
+      },
+      "name": "6d. Log Unsub Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        900,
+        -20
+      ],
+      "id": "4e8c5030-1f61-4eb3-8f28-6fae9dad8f3f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "unsubscribed"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "6e. Outcome: Unsubscribed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1140,
+        -20
+      ],
+      "id": "d3e9409f-9327-4ee1-9f9c-fcb6abcb1e7a"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "responseCode": 200
+      },
+      "name": "7. Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        200
+      ],
+      "id": "5f6a9cfa-5f2e-4f7f-9157-484b3e5fc2a7"
+    }
+  ],
+  "connections": {
+    "[START] Newsletter Manage": {
+      "main": [
+        [
+          {
+            "node": "1. Extract Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Extract Token": {
+      "main": [
+        [
+          {
+            "node": "1a. Token Provided?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1a. Token Provided?": {
+      "main": [
+        [
+          {
+            "node": "2. Lookup Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "1b. Outcome: Missing Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. Outcome: Missing Token": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Lookup Subscriber": {
+      "main": [
+        [
+          {
+            "node": "3. Evaluate Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Evaluate Subscriber": {
+      "main": [
+        [
+          {
+            "node": "3a. Subscriber Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3a. Subscriber Found?": {
+      "main": [
+        [
+          {
+            "node": "4. Confirm Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "3b. Outcome: Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3b. Outcome: Not Found": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Confirm Action?": {
+      "main": [
+        [
+          {
+            "node": "6. Mark Unsubscribed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "true": [
+        [
+          {
+            "node": "4a. Pending Opt-In?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4a. Pending Opt-In?": {
+      "main": [
+        [
+          {
+            "node": "5. Confirm Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "4b. Outcome: Already Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Outcome: Already Confirmed": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Confirm Subscriber": {
+      "main": [
+        [
+          {
+            "node": "5a. Build Confirm Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Build Confirm Email": {
+      "main": [
+        [
+          {
+            "node": "5b. Send Confirm Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5b. Send Confirm Email": {
+      "main": [
+        [
+          {
+            "node": "5c. Log Confirm Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5c. Log Confirm Message": {
+      "main": [
+        [
+          {
+            "node": "5d. Log Confirm Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5d. Log Confirm Event": {
+      "main": [
+        [
+          {
+            "node": "5e. Outcome: Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5e. Outcome: Confirmed": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Mark Unsubscribed": {
+      "main": [
+        [
+          {
+            "node": "6a. Build Unsub Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6a. Build Unsub Email": {
+      "main": [
+        [
+          {
+            "node": "6b. Send Unsub Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6b. Send Unsub Email": {
+      "main": [
+        [
+          {
+            "node": "6c. Log Unsub Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Log Unsub Message": {
+      "main": [
+        [
+          {
+            "node": "6d. Log Unsub Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6d. Log Unsub Event": {
+      "main": [
+        [
+          {
+            "node": "6e. Outcome: Unsubscribed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6e. Outcome: Unsubscribed": {
+      "main": [
+        [
+          {
+            "node": "7. Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "50d1c9c2c5e04611a57f01bf49db586bfb2f59cac14e379f3421f8a5cc6cf4d3"
+  }
+}

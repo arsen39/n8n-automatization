@@ -1,0 +1,580 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "every": 1
+            }
+          ],
+          "offset": {
+            "hours": 9
+          }
+        }
+      },
+      "name": "[START] Weekly Digest",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1880,
+        80
+      ],
+      "id": "ff758f67-6d08-484a-9885-72dee2ad177d"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DIGEST_FEED_URL || 'https://example.com/api/digest' }}",
+        "responseFormat": "json",
+        "options": {
+          "timeout": 60
+        }
+      },
+      "name": "1. Fetch Digest Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        80
+      ],
+      "id": "761342ac-eae1-4e79-8b9a-3257409ca820"
+    },
+    {
+      "parameters": {
+        "functionCode": "const payload = items[0]?.json ?? {};\nconst rawItems = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload) ? payload : []);\nconst lookbackDays = Number($env.DIGEST_LOOKBACK_DAYS ?? 5);\nconst maxItems = Number($env.DIGEST_MAX_ITEMS ?? 7);\nconst threshold = new Date(Date.now() - lookbackDays * 86400000);\n\nconst normalized = rawItems\n  .map(item => ({\n    title: item.title || item.subject || 'Untitled',\n    url: item.url || item.link || null,\n    summary: item.summary || item.description || '',\n    published_at: item.published_at || item.date || new Date().toISOString()\n  }))\n  .filter(item => {\n    try {\n      const published = new Date(item.published_at);\n      return !isNaN(published) && published >= threshold;\n    } catch (e) {\n      return true;\n    }\n  })\n  .slice(0, maxItems);\n\nreturn [{\n  json: {\n    items: normalized,\n    generated_at: new Date().toISOString(),\n    lookback_days: lookbackDays\n  }\n}];"
+      },
+      "name": "2. Normalize Feed",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -1340,
+        80
+      ],
+      "id": "0228afcd-9d14-4b71-af15-80be2a7f0add"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ Array.isArray($json.items) ? $json.items.length : 0 }}",
+              "operator": {
+                "type": "number",
+                "operation": "larger"
+              },
+              "rightValue": 0
+            }
+          ]
+        }
+      },
+      "name": "3. Has Content?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1100,
+        80
+      ],
+      "id": "da686fed-e4a6-4a44-b3b6-1c785fac7e21"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "skipped"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "no_content"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "3a. Outcome: No Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -900,
+        -120
+      ],
+      "id": "69ee7a28-1c67-4d0f-92f1-b66c1777df21"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ready AS (\n  SELECT COUNT(*) AS cnt\n  FROM newsletter_subscribers ns\n  WHERE ns.status = 'subscribed'\n    AND ns.unsubscribed_at IS NULL\n    AND ns.confirmed_at IS NOT NULL\n    AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days')\n)\nSELECT COALESCE((SELECT cnt FROM ready), 0)::int AS ready_count;"
+      },
+      "name": "4. Count Recipients",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -900,
+        200
+      ],
+      "id": "d387e32d-2bbd-4da6-8c6d-9d8b7e55a1f4",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ready_count }}",
+              "operator": {
+                "type": "number",
+                "operation": "larger"
+              },
+              "rightValue": 0
+            }
+          ]
+        }
+      },
+      "name": "5. Has Recipients?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -660,
+        200
+      ],
+      "id": "a0c5a8a5-7861-4f1a-b52f-4b43f8525b9c"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "fieldId": "status",
+              "fieldValue": "skipped"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "no_recipients"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": true
+        }
+      },
+      "name": "5a. Outcome: No Recipients",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -460,
+        -40
+      ],
+      "id": "cdb26ff9-5d60-4f3b-bbb2-7b5116d2f3b1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  ns.id AS subscriber_id,\n  ns.contact_id,\n  ns.unsubscribe_token,\n  ns.last_sent_at,\n  ns.confirmed_at,\n  c.email,\n  c.full_name,\n  COALESCE(NULLIF(c.preferred_lang, ''), 'ru') AS preferred_lang\nFROM newsletter_subscribers ns\nJOIN contacts c ON c.id = ns.contact_id\nWHERE ns.status = 'subscribed'\n  AND ns.unsubscribed_at IS NULL\n  AND ns.confirmed_at IS NOT NULL\n  AND (ns.last_sent_at IS NULL OR ns.last_sent_at <= NOW() - INTERVAL '5 days');"
+      },
+      "name": "6. Load Subscribers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -420,
+        320
+      ],
+      "id": "31ea4ec9-4bbf-46d7-9e05-9d0bc936560e",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "name": "7. Split Subscribers",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        320
+      ],
+      "id": "e7b63498-2b98-4a87-b18f-3c3df6e0d5de"
+    },
+    {
+      "parameters": {
+        "functionCode": "const subscriber = $json;\nconst feed = $('2. Normalize Feed').item.json;\nconst items = Array.isArray(feed.items) ? feed.items : [];\nconst lang = subscriber.preferred_lang || 'ru';\nconst unsubscribeBase = $env.NEWSLETTER_UNSUB_BASE_URL || 'https://example.com/newsletter/unsubscribe';\nconst unsubscribeUrl = `${unsubscribeBase}?token=${encodeURIComponent(subscriber.unsubscribe_token)}&action=unsubscribe`;\nconst introByLang = {\n  ru: 'Свежие материалы за последние дни:',\n  en: 'Fresh updates for you:',\n  pl: 'Najnowsze materiały dla Ciebie:'\n};\nconst outroByLang = {\n  ru: `Можно управлять подпиской: ${unsubscribeUrl}`,\n  en: `Manage your subscription: ${unsubscribeUrl}`,\n  pl: `Zarządzaj subskrypcją: ${unsubscribeUrl}`\n};\n\nconst bulletList = items.map((item, idx) => {\n  const index = idx + 1;\n  const title = item.title || `Материал ${index}`;\n  const url = item.url ? `${index}. ${title} — ${item.url}` : `${index}. ${title}`;\n  return url;\n}).join('\n');\n\nconst subjectPrefix = $env.NEWSLETTER_DIGEST_SUBJECT_PREFIX || '[Digest]';\nconst subject = `${subjectPrefix} ${feed.generated_at?.slice(0, 10) || ''}`.trim();\n\nconst bodyText = `${introByLang[lang] || introByLang.en}\n\n${bulletList}\n\n${outroByLang[lang] || outroByLang.en}`;\n\nreturn [{\n  json: {\n    email: subscriber.email,\n    full_name: subscriber.full_name,\n    subject,\n    body_text: bodyText,\n    body_html: bodyText.replace(/\n/g, '<br />'),\n    unsubscribe_url: unsubscribeUrl,\n    subscriber_id: subscriber.subscriber_id,\n    items_sent: items.length\n  }\n}];"
+      },
+      "name": "8. Prepare Digest Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        80,
+        320
+      ],
+      "id": "3a3284b2-3a97-4fa0-a4fd-0c9c25bd78be"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "fromEmail": "={{ $env.NEWSLETTER_FROM_EMAIL || 'newsletter@example.com' }}",
+        "toEmail": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body_text }}",
+        "html": "={{ $json.body_html }}",
+        "options": {}
+      },
+      "name": "9. Send Digest Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        320,
+        320
+      ],
+      "id": "ab7d3d42-69d8-4767-8ac5-32fbcb5a993a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WQjBT9KV8K1F6bNi",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (conversation_id, direction, medium, sender_contact_id, body, body_html, message_ts, meta)\nVALUES (NULL, 'outbound', 'email', NULL, $1, $2, NOW(), jsonb_build_object('kind', 'newsletter_digest', 'subscriber_id', $3::uuid, 'email', $4, 'subject', $5))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.body_text, $('8. Prepare Digest Email').item.json.body_html, $('8. Prepare Digest Email').item.json.subscriber_id, $('8. Prepare Digest Email').item.json.email, $('8. Prepare Digest Email').item.json.subject ] }}"
+        }
+      },
+      "name": "10. Log Digest Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        320
+      ],
+      "id": "b181ab98-8a0c-4d55-8db6-4748fd63243f",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE newsletter_subscribers\nSET last_sent_at = NOW(), updated_at = NOW()\nWHERE id = $1::uuid\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.subscriber_id ] }}"
+        }
+      },
+      "name": "11. Update Last Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        800,
+        320
+      ],
+      "id": "d6ad3ed1-daf3-48e2-812d-622876dd96f8",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('subscriber', $1::uuid, 'newsletter_digest_sent', jsonb_build_object('items', $2::int, 'subject', $3, 'sent_at', NOW()))\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [ $('8. Prepare Digest Email').item.json.subscriber_id, $('8. Prepare Digest Email').item.json.items_sent, $('8. Prepare Digest Email').item.json.subject ] }}"
+        }
+      },
+      "name": "12. Log Digest Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        320
+      ],
+      "id": "f47ec7aa-55bc-4fa3-9e35-cc560a03c6c1",
+      "credentials": {
+        "postgres": {
+          "id": "Q6TYPE7PGoXfCRLa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "seconds"
+      },
+      "name": "13. Rate Limit Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        320
+      ],
+      "id": "a83f61f3-a5a7-457f-9a2e-8b4f06943029"
+    },
+    {
+      "parameters": {
+        "functionCode": "const feed = $('2. Normalize Feed').item.json;\nconst countRow = $('4. Count Recipients').item.json;\nreturn [{\n  json: {\n    status: 'sent',\n    recipients: countRow.ready_count || 0,\n    items: Array.isArray(feed.items) ? feed.items.length : 0,\n    generated_at: feed.generated_at\n  }\n}];"
+      },
+      "name": "14. Outcome: Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        200,
+        560
+      ],
+      "id": "d5a2b4e7-76e0-493d-8d43-7f3d8f5c92a3"
+    },
+    {
+      "parameters": {
+        "functionCode": "return items;"
+      },
+      "name": "15. Return Digest Result",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        480,
+        520
+      ],
+      "id": "bb6c7d17-98fc-4cb2-9d67-f499521ea474"
+    }
+  ],
+  "connections": {
+    "[START] Weekly Digest": {
+      "main": [
+        [
+          {
+            "node": "1. Fetch Digest Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Fetch Digest Feed": {
+      "main": [
+        [
+          {
+            "node": "2. Normalize Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Normalize Feed": {
+      "main": [
+        [
+          {
+            "node": "3. Has Content?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Has Content?": {
+      "main": [
+        [
+          {
+            "node": "4. Count Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "3a. Outcome: No Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3a. Outcome: No Content": {
+      "main": [
+        [
+          {
+            "node": "15. Return Digest Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Count Recipients": {
+      "main": [
+        [
+          {
+            "node": "5. Has Recipients?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Has Recipients?": {
+      "main": [
+        [
+          {
+            "node": "6. Load Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "5a. Outcome: No Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5a. Outcome: No Recipients": {
+      "main": [
+        [
+          {
+            "node": "15. Return Digest Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Load Subscribers": {
+      "main": [
+        [
+          {
+            "node": "7. Split Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Split Subscribers": {
+      "main": [
+        [
+          {
+            "node": "8. Prepare Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "14. Outcome: Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Prepare Digest Email": {
+      "main": [
+        [
+          {
+            "node": "9. Send Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Send Digest Email": {
+      "main": [
+        [
+          {
+            "node": "10. Log Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Log Digest Message": {
+      "main": [
+        [
+          {
+            "node": "11. Update Last Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11. Update Last Sent": {
+      "main": [
+        [
+          {
+            "node": "12. Log Digest Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Log Digest Event": {
+      "main": [
+        [
+          {
+            "node": "13. Rate Limit Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13. Rate Limit Wait": {
+      "main": [
+        [
+          {
+            "node": "7. Split Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14. Outcome: Summary": {
+      "main": [
+        [
+          {
+            "node": "15. Return Digest Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "c4d63b018e45431683a599c779e075a93a6f68a2c9a6f4d0425eb613a5dfbc76"
+  }
+}

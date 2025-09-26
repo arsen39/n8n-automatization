@@ -185,3 +185,71 @@
 4. **Логи и идемпотентность:** каждое действие фиксируется в `messages` (`meta.kind=hr_followup_1|2`) и `pipeline_events` (`vacancy_followup_1_sent`, `vacancy_followup_2_sent`, `vacancy_candidate_*`).
 
 **Зачем выносить в отдельный sequencer:** крон не держит активных исполнений n8n на протяжении недель, переживает рестарты инстанса и одинаково обрабатывает повторные попытки (идемпотентные SQL).
+
+---
+
+# Кейс 1.3 — Обработка подписки на рассылку
+
+Документ описывает поток, который превращает заявку на подписку в управляемый сегмент рассылки с Double Opt-In, приветственным письмом и регулярными дайджестами.
+
+## Общая цепочка
+
+| Шаг | Воркфлоу | Назначение |
+| --- | --- | --- |
+| 1 | `crm.in.forms` | Принимает вебхуки/письма подписки, нормализует payload и определяет `intent=newsletter`. |
+| 2 | `mkt.proc.newsletter` | Создаёт/обновляет контакт, сохраняет подписку, отправляет DOI/welcome, логирует событие. |
+| 3 | `mkt.proc.digest` | Крон-дегист: собирает новые материалы и рассылает их активным подписчикам. |
+| 4 | `mkt.proc.unsubscribe` | Обрабатывает отписку по уникальному токену и фиксирует согласия. |
+
+Ключевые таблицы PostgreSQL: `contacts`, `newsletter_subscribers`, `messages`, `templates`, `pipeline_events`, `consents`.
+
+---
+
+## `mkt.proc.newsletter`
+
+**Триггер:** вызов из `crm.in.forms` (`Execute Workflow`) при `form_code='newsletter'` или `classification.intent='newsletter'`.
+
+**Основной сценарий:**
+
+1. **Валидация и нормализация.** Проверяем наличие `email`, `source_code`, согласий (`accepts_marketing`, `accepts_terms`). Вешаем `dedupe_key = sha256(email+source_code)` и добавляем `unsubscribe_token` (UUID v4) для новых записей.
+2. **Upsert контакта.** Через SQL/HTTP в БД обновляем `contacts` (`email`, `full_name`, `timezone`). Если контакт уже существует, только обновляем предпочтения (`preferred_lang`, `tags += ['newsletter']`).
+3. **Upsert подписки.** Вставляем или обновляем `newsletter_subscribers` по `contact_id`/`source_id`:
+   - `status='pending_opt_in'` при включенном Double Opt-In,
+   - `status='subscribed'` если DOI не требуется или ссылка подтверждена ранее,
+   - сохраняем `consent_version`, `subscribed_at`, `unsubscribed_at`.
+4. **Double Opt-In.** Если `status='pending_opt_in'`, отправляем письмо `templates.code = 'newsletter.doi.<lang>'` с ссылкой `/newsletter/confirm?token=<unsubscribe_token>&action=confirm`. Повторная отправка возможна при повторном подписании (идемпотентность).
+5. **Welcome письмо.** После подтверждения (или сразу при отключённом DOI) отправляем шаблон `newsletter.welcome.<lang>` с подборкой материалов и ссылкой на центр управления подпиской. Все отправки логируются в `messages` (`direction='outbound'`, `medium='email'`, `meta.kind='newsletter_welcome|newsletter_doi'`).
+6. **События и уведомления.** Записываем `pipeline_events` (`newsletter_subscribed`, `newsletter_doi_sent`, `newsletter_welcome_sent`) и отправляем уведомление в Telegram при ошибках (например, отсутствует шаблон). Возвращаем вызывающему флоу `status`, `contact_id`, `subscriber_id`.
+
+**Fail-safes:**
+
+- Повторный вызов с тем же email/source не создаёт дублей (`ON CONFLICT` на `newsletter_subscribers.contact_id, source_id`).
+- Некорректные email/отсутствие согласий → `pipeline_events` с `newsletter_subscription_rejected` и уведомление.
+
+---
+
+## `mkt.proc.digest`
+
+**Триггер:** `Schedule Trigger` (еженедельно/ежемесячно, например, понедельник 09:00 по UTC+0).
+
+**Что делает:**
+
+1. **Выбор подписчиков.** SQL-запрос к `newsletter_subscribers` (`status='subscribed'`, `unsubscribed_at IS NULL`, `last_sent_at < now() - interval '5 days'`).
+2. **Сбор контента.** HTTP-запрос к Chain.do/RSS API за последние материалы → фильтрация по `published_at` > `last_digest_at`. При отсутствии новостей — создаём `pipeline_events.newsletter_digest_skipped`.
+3. **Формирование писем.** На основе шаблона `newsletter.digest.<lang>` формируем список 3–7 материалов, добавляем персональный `unsubscribe_link = UNSUB_BASE_URL + token`.
+4. **Отправка партиями.** Используем батчи по 100 контактов, между батчами `Wait` для rate-limit. Каждая отправка логируется в `messages` (`meta.kind='newsletter_digest'`).
+5. **Запись состояния.** Обновляем `newsletter_subscribers.last_sent_at`, записываем `pipeline_events.newsletter_digest_sent` и статистику (кол-во подписчиков, кол-во статей).
+
+---
+
+## `mkt.proc.unsubscribe`
+
+**Триггер:** Webhook (`/newsletter/unsubscribe/:token`) либо кнопка `Track Link` из письма.
+
+**Что делает:**
+
+1. Валидация токена → поиск подписки по `unsubscribe_token`.
+2. Обновление `newsletter_subscribers.status='unsubscribed'`, `unsubscribed_at=NOW()` и запись `consents.revoked_at`.
+3. Лог `pipeline_events.newsletter_unsubscribed`, подтверждающее письмо и Telegram-нотификация.
+
+**Итог:** любой unsubscribe немедленно исключает контакт из будущих рассылок, повторная подписка создаёт новую запись со свежим `unsubscribe_token`.
