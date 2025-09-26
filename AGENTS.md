@@ -279,6 +279,7 @@ This list is more of a "registry" than a task assignment.
 - [ ] All external calls are protected by timeouts and checkpoints.
 - [ ] Event logs at key steps, correlation by key.
 - [ ] Exported `.json` passes `n8n/scripts/validate-flows.mjs`.
+- [ ] `If` nodes use version ≥2 syntax (`typeVersion` 2.2) with `conditions.conditions[]`, `operator.type`, and `combinator` (`and`/`or`).
 
 **Before merge:**
 

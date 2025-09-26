@@ -20,17 +20,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1e. Validate & Shape').item.json.classification.label }}",
-              "value2": "spam"
+              "leftValue": "={{ $('1e. Validate & Shape').item.json.classification.label }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "spam"
             }
           ]
         }
       },
       "name": "4. Is Spam?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -6464,
         176
@@ -219,17 +224,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1e. Validate & Shape').item.json.company_name }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('1e. Validate & Shape').item.json.company_name }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "IF: Company Name Exists?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -6192,
         240
@@ -262,17 +272,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1e. Validate & Shape').item.json.company_website }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('1e. Validate & Shape').item.json.company_website }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "IF: Website Exists?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -5872,
         96
@@ -347,17 +362,22 @@
     {
       "parameters": {
         "conditions": {
-          "number": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1. Find Contact by Email').item.json.contact_id }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('1. Find Contact by Email').item.json.contact_id }}",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "2. IF: Contact Found?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -4752,
         336
@@ -648,24 +668,30 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "or",
+          "conditions": [
             {
-              "value1": "={{ $('1e. Validate & Shape').item.json.lead_intent }}",
-              "operation": "isEqual",
-              "value2": "candidate"
+              "leftValue": "={{ $('1e. Validate & Shape').item.json.lead_intent }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "candidate"
             },
             {
-              "value1": "={{ $('1e. Validate & Shape').item.json.form_code }}",
-              "operation": "isEqual",
-              "value2": "vacancy"
+              "leftValue": "={{ $('1e. Validate & Shape').item.json.form_code }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "vacancy"
             }
-          ],
-          "combineOperation": "any"
+          ]
         }
       },
       "name": "8a. Is Candidate Intent?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -2064,
         528
@@ -718,17 +744,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $json.error }}",
-              "operation": "isEmpty"
+              "leftValue": "={{ $json.error }}",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "8b. Vacancy Processor Succeeded?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -1312,
         528

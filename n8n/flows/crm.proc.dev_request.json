@@ -110,17 +110,22 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $('1a. Load Template').item.json.subject_template }}",
-              "operation": "isNotEmpty"
+              "leftValue": "={{ $('1a. Load Template').item.json.subject_template }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "rightValue": null
             }
           ]
         }
       },
       "name": "1b. IF: Template Found?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -9712,
         272
@@ -424,10 +429,15 @@
     {
       "parameters": {
         "conditions": {
-          "string": [
+          "combinator": "and",
+          "conditions": [
             {
-              "value1": "={{ $json.error }}",
-              "operation": "isEmpty"
+              "leftValue": "={{ $json.error }}",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              },
+              "rightValue": null
             }
           ]
         }
@@ -435,7 +445,7 @@
       "id": "046a47e2-1f13-4bac-8c74-0f7d3aa987b5",
       "name": "4a. Initial Email Sent?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "typeVersion": 2.2,
       "position": [
         -7600,
         192
