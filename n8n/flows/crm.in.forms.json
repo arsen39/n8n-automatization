@@ -9,13 +9,10 @@
       "name": "crm.in.forms",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        -2304,
-        -112
-      ],
+      "position": [-8400, 0],
       "webhookId": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
-      "id": "9eebc854-7982-4625-9665-787265acd2b6",
-      "notes": "Trigger: Webhook (\u043f\u043e \u0444\u043e\u0440\u043c\u0430\u043c dev_request, vacancy, newsletter)\n\n\u041e\u0436\u0438\u0434\u0430\u0435\u0442 \u0432 \u0437\u0430\u0433\u043e\u043b\u043e\u0432\u043a\u0430\u0445:\nX-Resource (e.g., 'chain.do')\nX-Form-Code (e.g., 'dev_request')\n\n\u0422\u0435\u043b\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0430 (body) \u0434\u043e\u043b\u0436\u043d\u043e \u0441\u043e\u0434\u0435\u0440\u0436\u0430\u0442\u044c email, full_name, message \u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u043f\u043e\u043b\u044f \u0444\u043e\u0440\u043c\u044b."
+      "id": "cbbfe74c-ea8e-44db-bf19-c3d3c9a01f64",
+      "notes": "Trigger: Webhook (по формам dev_request, vacancy, newsletter)\n\nОжидает в заголовках:\nX-Resource (e.g., 'chain.do')\nX-Form-Code (e.g., 'dev_request')\n\nТело запроса (body) должно содержать email, full_name, message и другие поля формы."
     },
     {
       "parameters": {
@@ -31,11 +28,8 @@
       "name": "4. Is Spam?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        -368,
-        48
-      ],
-      "id": "5200d5a3-76c6-4126-b919-20a325599d40"
+      "position": [-6464, 176],
+      "id": "a26a37aa-1d39-4246-919b-46b7bf3e0460"
     },
     {
       "parameters": {
@@ -47,11 +41,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -576,
-        48
-      ],
-      "id": "1a39a1ba-405a-4c10-9d9d-7c280a10f43f",
+      "position": [-6672, 176],
+      "id": "05e31c54-360a-4ce4-a47f-ec0bc3d09863",
       "name": "3b. Insert Classification",
       "credentials": {
         "postgres": {
@@ -63,18 +54,15 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ins AS (\n  INSERT INTO submissions (\n    form_id, source_id, resource, received_at,\n    raw_payload, email, full_name, message, external_id, status\n  )\n  VALUES (\n    (SELECT id FROM forms   WHERE code = $1),\n    (SELECT id FROM sources WHERE code = $2),\n    $2,\n    NOW(),\n    $3::jsonb,\n    $4, $5, $6, $7,\n    'new'\n  )\n  ON CONFLICT (external_id) DO UPDATE\n    SET external_id = EXCLUDED.external_id  -- no-op \u0434\u043b\u044f \u0438\u0434\u0435\u043c\u043f\u043e\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u0438\n  RETURNING id\n)\nSELECT id AS submission_id FROM ins\nUNION ALL\nSELECT id FROM submissions WHERE external_id = $7\nLIMIT 1;",
+        "query": "WITH ins AS (\n  INSERT INTO submissions (\n    form_id, source_id, resource, received_at,\n    raw_payload, email, full_name, message, external_id, status\n  )\n  VALUES (\n    (SELECT id FROM forms   WHERE code = $1),\n    (SELECT id FROM sources WHERE code = $2),\n    $2,\n    NOW(),\n    $3::jsonb,\n    $4, $5, $6, $7,\n    'new'\n  )\n  ON CONFLICT (external_id) DO UPDATE\n    SET external_id = EXCLUDED.external_id  -- no-op для идемпотентности\n  RETURNING id\n)\nSELECT id AS submission_id FROM ins\nUNION ALL\nSELECT id FROM submissions WHERE external_id = $7\nLIMIT 1;",
         "options": {
           "queryReplacement": "={{ [\n  $json.form_code,\n  $json.source_code,\n  JSON.stringify($json.raw_payload ?? {}),\n  $json.email,\n  $json.full_name ?? '',\n  $json.message ?? '',\n  $json.external_id\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -800,
-        48
-      ],
-      "id": "6e0d374d-a358-4e2f-8219-1acdc95c3d5e",
+      "position": [-6896, 176],
+      "id": "ea95bc1d-b66d-4410-a881-536cd698f48b",
       "name": "2. Insert Submission",
       "credentials": {
         "postgres": {
@@ -91,11 +79,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -96,
-        -176
-      ],
-      "id": "ee1bb3e7-e92f-4814-97bf-3554406e5c0d",
+      "position": [-6192, -64],
+      "id": "a227777c-b436-4b70-9602-dbb2a7cdcbd8",
       "name": "Update Submission (Spam)",
       "credentials": {
         "postgres": {
@@ -117,11 +102,8 @@
       },
       "type": "n8n-nodes-base.gmailTrigger",
       "typeVersion": 1.3,
-      "position": [
-        -2304,
-        192
-      ],
-      "id": "ebecddd7-15fa-4234-87a2-bd3801707287",
+      "position": [-8400, 320],
+      "id": "47bc4334-6e8c-4963-b04f-e4ea2ce07e0e",
       "name": "Gmail Trigger",
       "credentials": {
         "gmailOAuth2": {
@@ -132,15 +114,12 @@
     },
     {
       "parameters": {
-        "jsCode": "const isGmail = !!$json.threadId && !!$json.internalDate;\n\nfunction fromWebhook(j) {\n  const body = j.body || {};\n  const headers = j.headers || {};\n  return {\n    trigger: 'webhook',\n    source_code: headers['x-resource'] || 'chain_do', // fallback\n    form_code: headers['x-form-code'] || body.form_code || null,\n    subject: body.subject || `Form: ${headers['x-form-code'] || 'unknown'}`,\n    from_email: (body.email || '').toLowerCase().trim() || null,\n    from_name: body.full_name || null,\n    body_text: body.message || '',\n    body_html: body.message_html || null,\n    sent_at: new Date().toISOString(),\n    external_message_id: body.external_id || null,\n    attachments: body.attachments || [],\n    raw: j\n  };\n}\n\nfunction fromGmail(j) {\n  // \u0423\u043f\u0440\u043e\u0449\u0435\u043d\u043d\u044b\u0439 \u043f\u0430\u0440\u0441\u0438\u043d\u0433 \u043f\u043e\u043b\u044f \"From\", \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0441\u0442\u0430\u0442\u044c email \u0438 \u0438\u043c\u044f\n  const fromRaw = j.From || '';\n  const nameMatch = fromRaw.match(/^(.*)<.*>$/);\n  const emailMatch = fromRaw.match(/<(.*)>/);\n\n  const from_name = nameMatch ? nameMatch[1].trim() : (emailMatch ? '' : fromRaw);\n  const from_email = emailMatch ? emailMatch[1].toLowerCase().trim() : fromRaw.toLowerCase().trim();\n\n  return {\n    trigger: 'gmail',\n    source_code: 'email_inbox',\n    form_code: null,\n    subject: j.Subject || '(no subject)',\n    from_email: from_email || null,\n    from_name: from_name || null,\n    body_text: j.snippet || '', // Gmail Trigger \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e \u0434\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e snippet. \u0414\u043b\u044f \u043f\u043e\u043b\u043d\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442\u0430 \u043d\u0443\u0436\u043d\u0430 \u0434\u043e\u043f. \u043d\u043e\u0434\u0430\n    body_html: null, // \u0410\u043d\u0430\u043b\u043e\u0433\u0438\u0447\u043d\u043e, \u0434\u043b\u044f HTML \u043d\u0443\u0436\u043d\u0430 \u0434\u043e\u043f. \u043d\u043e\u0434\u0430\n    sent_at: new Date(parseInt(j.internalDate, 10)).toISOString(),\n    external_message_id: j.id || null,\n    attachments: (j.attachments || []).map(a => ({ filename: a.filename, mime: a.mimeType, size: a.size })),\n    raw: j\n  };\n}\n\nconst env = isGmail ? fromGmail($json) : fromWebhook($json);\n\n// \u0434\u043e\u043c\u0435\u043d \u0434\u043b\u044f \u043a\u043e\u043c\u043f\u0430\u043d\u0438\u0439, \u0435\u0441\u043b\u0438 \u043a\u043e\u0440\u043f\u043e\u0440\u0430\u0442\u0438\u0432\u043d\u0430\u044f \u043f\u043e\u0447\u0442\u0430\nenv.from_domain = (env.from_email && env.from_email.includes('@')) ? env.from_email.split('@')[1] : null;\n\nenv.ai_view = {\n  trigger: env.trigger,\n  source_code: env.source_code,\n  form_code: env.form_code,\n  subject: env.subject,\n  from_email: env.from_email,\n  from_name: env.from_name,\n  body_text: env.body_text,\n  body_html: env.body_html,\n  sent_at: env.sent_at,\n  external_message_id: env.external_message_id,\n  from_domain: env.from_domain,\n};\n\nreturn [env];"
+        "jsCode": "const isGmail = !!$json.threadId && !!$json.internalDate;\n\nfunction fromWebhook(j) {\n  const body = j.body || {};\n  const headers = j.headers || {};\n  return {\n    trigger: 'webhook',\n    source_code: headers['x-resource'] || 'chain_do', // fallback\n    form_code: headers['x-form-code'] || body.form_code || null,\n    subject: body.subject || `Form: ${headers['x-form-code'] || 'unknown'}`,\n    from_email: (body.email || '').toLowerCase().trim() || null,\n    from_name: body.full_name || null,\n    body_text: body.message || '',\n    body_html: body.message_html || null,\n    sent_at: new Date().toISOString(),\n    external_message_id: body.external_id || null,\n    attachments: body.attachments || [],\n    raw: j\n  };\n}\n\nfunction fromGmail(j) {\n  // Упрощенный парсинг поля \"From\", чтобы достать email и имя\n  const fromRaw = j.From || '';\n  const nameMatch = fromRaw.match(/^(.*)<.*>$/);\n  const emailMatch = fromRaw.match(/<(.*)>/);\n\n  const from_name = nameMatch ? nameMatch[1].trim() : (emailMatch ? '' : fromRaw);\n  const from_email = emailMatch ? emailMatch[1].toLowerCase().trim() : fromRaw.toLowerCase().trim();\n\n  return {\n    trigger: 'gmail',\n    source_code: 'email_inbox',\n    form_code: null,\n    subject: j.Subject || '(no subject)',\n    from_email: from_email || null,\n    from_name: from_name || null,\n    body_text: j.snippet || '', // Gmail Trigger по умолчанию дает только snippet. Для полного текста нужна доп. нода\n    body_html: null, // Аналогично, для HTML нужна доп. нода\n    sent_at: new Date(parseInt(j.internalDate, 10)).toISOString(),\n    external_message_id: j.id || null,\n    attachments: (j.attachments || []).map(a => ({ filename: a.filename, mime: a.mimeType, size: a.size })),\n    raw: j\n  };\n}\n\nconst env = isGmail ? fromGmail($json) : fromWebhook($json);\n\n// домен для компаний, если корпоративная почта\nenv.from_domain = (env.from_email && env.from_email.includes('@')) ? env.from_email.split('@')[1] : null;\n\nenv.ai_view = {\n  trigger: env.trigger,\n  source_code: env.source_code,\n  form_code: env.form_code,\n  subject: env.subject,\n  from_email: env.from_email,\n  from_name: env.from_name,\n  body_text: env.body_text,\n  body_html: env.body_html,\n  sent_at: env.sent_at,\n  external_message_id: env.external_message_id,\n  from_domain: env.from_domain,\n};\n\nreturn [env];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -2016,
-        48
-      ],
-      "id": "26b4631b-1d59-4916-9d6c-05fee5bf6f96",
+      "position": [-8112, 176],
+      "id": "806bebf0-7a0f-41f4-9bde-ea307ad0da12",
       "name": "0a. Build Envelope"
     },
     {
@@ -162,11 +141,8 @@
       },
       "type": "@n8n/n8n-nodes-langchain.anthropic",
       "typeVersion": 1,
-      "position": [
-        -1808,
-        48
-      ],
-      "id": "f2e75e50-34cb-4cd7-9487-4b892de516c7",
+      "position": [-7904, 176],
+      "id": "c323b003-5844-4d6f-8802-ab0ed498b20e",
       "name": "0b. AI Extract & Classify",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -183,37 +159,28 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1472,
-        48
-      ],
-      "id": "8608904b-590f-4c48-a64f-0a5400ca6bb9",
+      "position": [-7568, 176],
+      "id": "3b2be69c-6baa-4ffc-963b-beb2d8763ca6",
       "name": "1c. Parse AI JSON"
     },
     {
       "parameters": {
-        "jsCode": "// Node: 1d. Enforce Intake Policy (Code)\n\nconst env = $('0a. Build Envelope').item.json;  // \u043a\u043e\u043d\u0432\u0435\u0440\u0442 \u0438\u0437 0a\nconst ai  = $json || {};                        // JSON \u0438\u0437 1c\n\n// 0) \u0411\u0430\u0437\u043e\u0432\u0430\u044f \u0444\u043e\u0440\u043c\u0430 \u043a\u043b\u0430\u0441\u0441\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u0438\nai.classification = ai.classification || { label: 'ham', intent: 'generic', confidence: 0 };\n\n// 1) \u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043f\u0440\u0438\u0451\u043c\u0430: \u0432 \u044d\u0442\u043e\u043c \u043f\u0430\u0439\u043f\u043b\u0430\u0439\u043d\u0435 \u043a\u0430\u043d\u0434\u0438\u0434\u0430\u0442\u043e\u0432 \u0431\u044b\u0442\u044c \u043d\u0435 \u043c\u043e\u0436\u0435\u0442\nconst ALLOWED_INTENTS = ['client','partner','newsletter'];   // \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b\u0435 intent'\u044b\nconst CLIENT_ONLY_SOURCES = ['chain_do','email_inbox'];      // \u043a\u0430\u043a\u0438\u0435 \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0438 \u0441\u0447\u0438\u0442\u0430\u0435\u043c \"\u043a\u043b\u0438\u0435\u043d\u0442\u0441\u043a\u0438\u043c\u0438\"\nconst CLIENT_ONLY_FORMS   = ['dev_request','consult_request','estimate_request']; // \u0444\u043e\u0440\u043c\u044b \u0434\u043b\u044f \u043a\u043b\u0438\u0435\u043d\u0442\u043e\u0432\n\nconst isClientOnly =\n  (env.trigger === 'webhook' && env.form_code && CLIENT_ONLY_FORMS.includes(env.form_code)) ||\n  (env.trigger === 'gmail'   && CLIENT_ONLY_SOURCES.includes(env.source_code));\n\nconst intent = String(ai.classification.intent || 'generic').toLowerCase();\nif (isClientOnly && ai.classification.label === 'ham' && !ALLOWED_INTENTS.includes(intent)) {\n  // \u0432\u0441\u0451, \u0447\u0442\u043e \u043d\u0435 client/partner/newsletter - \u0441\u0447\u0438\u0442\u0430\u0435\u043c \u0441\u043f\u0430\u043c\u043e\u043c \u0432 \u044d\u0442\u043e\u043c \u043f\u0430\u0439\u043f\u043b\u0430\u0439\u043d\u0435\n  ai.classification.label = 'spam';\n  ai.classification.intent = 'generic';\n  ai.classification.confidence = Math.max(ai.classification.confidence || 0, 0.9);\n\n  const tag = intent === 'candidate'\n    ? 'candidate_on_client_intake'\n    : 'policy_violation_disallowed_intent';\n\n  ai.tags = Array.isArray(ai.tags) ? Array.from(new Set([...ai.tags, tag])) : [tag];\n}\n\n// 2) dedupe_key \u0441\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u043e (\u0431\u0435\u0437 \u0432\u0440\u0435\u043c\u0435\u043d\u0438)\nconst email = (ai.contact?.email || env.from_email || '').toLowerCase().trim() || 'unknown';\nai.external = ai.external || {};\nai.external.message_id = ai.external.message_id || env.external_message_id || null;\nai.external.dedupe_key = `${email}:${env.source_code}`;\n\n// 3) subject/sent_at fallback\nai.message = ai.message || {};\nif (!ai.message.subject) ai.message.subject = env.subject || null;\nif (!ai.message.sent_at) ai.message.sent_at = new Date(env.sent_at || Date.now()).toISOString();\n\nreturn [ai];\n"
+        "jsCode": "// Node: 1d. Enforce Intake Policy (Code)\n\nconst env = $('0a. Build Envelope').item.json;  // конверт из 0a\nconst ai  = $json || {};                        // JSON из 1c\n\n// 0) Базовая форма классификации\nai.classification = ai.classification || { label: 'ham', intent: 'generic', confidence: 0 };\n\n// 1) Политика приёма: в этом пайплайне кандидатов быть не может\nconst ALLOWED_INTENTS = ['client','partner','newsletter'];   // допустимые intent'ы\nconst CLIENT_ONLY_SOURCES = ['chain_do','email_inbox'];      // какие источники считаем \"клиентскими\"\nconst CLIENT_ONLY_FORMS   = ['dev_request','consult_request','estimate_request']; // формы для клиентов\n\nconst isClientOnly =\n  (env.trigger === 'webhook' && env.form_code && CLIENT_ONLY_FORMS.includes(env.form_code)) ||\n  (env.trigger === 'gmail'   && CLIENT_ONLY_SOURCES.includes(env.source_code));\n\nconst intent = String(ai.classification.intent || 'generic').toLowerCase();\nif (isClientOnly && ai.classification.label === 'ham' && !ALLOWED_INTENTS.includes(intent)) {\n  // всё, что не client/partner/newsletter - считаем спамом в этом пайплайне\n  ai.classification.label = 'spam';\n  ai.classification.intent = 'generic';\n  ai.classification.confidence = Math.max(ai.classification.confidence || 0, 0.9);\n\n  const tag = intent === 'candidate'\n    ? 'candidate_on_client_intake'\n    : 'policy_violation_disallowed_intent';\n\n  ai.tags = Array.isArray(ai.tags) ? Array.from(new Set([...ai.tags, tag])) : [tag];\n}\n\n// 2) dedupe_key стабильно (без времени)\nconst email = (ai.contact?.email || env.from_email || '').toLowerCase().trim() || 'unknown';\nai.external = ai.external || {};\nai.external.message_id = ai.external.message_id || env.external_message_id || null;\nai.external.dedupe_key = `${email}:${env.source_code}`;\n\n// 3) subject/sent_at fallback\nai.message = ai.message || {};\nif (!ai.message.subject) ai.message.subject = env.subject || null;\nif (!ai.message.sent_at) ai.message.sent_at = new Date(env.sent_at || Date.now()).toISOString();\n\nreturn [ai];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1248,
-        48
-      ],
-      "id": "a8e6387e-172a-4e41-9336-b2fe7a51fca3",
+      "position": [-7344, 176],
+      "id": "89d43a79-6f65-44e8-89ce-bdb2f1d7f458",
       "name": "1d. Enforce Intake Policy"
     },
     {
       "parameters": {
-        "jsCode": "// Node: 1e. Validate & Shape (Code)\n\n// === small, dependency-free hash ===\nfunction fnv1a64(str) {\n  let hash = 0xcbf29ce484222325n;        // FNV offset basis\n  const prime = 0x100000001b3n;          // FNV prime\n  for (let i = 0; i < str.length; i++) {\n    hash ^= BigInt(str.charCodeAt(i));\n    hash = (hash * prime) & 0xffffffffffffffffn; // 64-bit overflow\n  }\n  return hash.toString(16).padStart(16, '0');    // 16 hex chars (64-bit)\n}\n\nconst env = $('0a. Build Envelope').item.json;\nconst ai  = $('1d. Enforce Intake Policy').item.json;\n\nfunction normUrl(u){ try { return u ? new URL(u).toString() : null; } catch { return null; } }\nfunction fromDomain(domain) {\n  if (!domain) return null;\n  const base = domain.replace(/^www\\./, '');\n  const name = base.split('.')[0];\n  if (!name) return null;\n  return {\n    name: name.charAt(0).toUpperCase() + name.slice(1),\n    website: `https://${base}`,\n  };\n}\n\nconst email = (ai?.contact?.email || env.from_email || '').toLowerCase().trim() || null;\nif (!email) {\n  const message = 'Email is required';\n  const error = new Error(message);\n  error.cause = { kind: 'missing_email', ai_errors: ai?.ai_errors || [] };\n  throw error;\n}\n\nconst form_code   = env.form_code || null;\nconst source_code = env.source_code || 'email_inbox';\nconst channel     = env.trigger === 'gmail' ? 'email' : 'form';\n\nconst msg       = ai?.message || {};\nconst subject   = msg.subject || env.subject || null;\nconst sent_at   = new Date(msg.sent_at || env.sent_at || Date.now()).toISOString();\nconst body_text = (msg.plain ?? env.body_text ?? '').toString();\nconst body_html = msg.html ?? env.body_html ?? null;\n\nconst rawStable = env.raw ? JSON.stringify(env.raw) : JSON.stringify({\n  source_code, form_code, email, subject, body_text\n});\nconst sig = fnv1a64(rawStable);\n\nconst external_id =\n  env.external_message_id\n  || (form_code ? `form-${form_code}-${sig}`\n                : `auto-${source_code}-${sig}`);\n\nconst aiCompany   = ai?.company || {};\nconst domCompany  = fromDomain(env.from_domain);\nconst company     = aiCompany?.name ? aiCompany : domCompany || null;\n\nconst classification = ai?.classification || {};\nconst lead_intent    = classification.intent || 'generic';\nconst aiErrors = Array.isArray(ai?.ai_errors) ? ai.ai_errors.filter(Boolean) : [];\n\nconst intakeFlags = new Set(Array.isArray(ai?.tags) ? ai.tags.filter(Boolean) : []);\nif (aiErrors.length) intakeFlags.add('ai_parse_warning');\n\nconst summary = ai?.shortSummaryForSales\n  || (body_text ? `${body_text.slice(0, 260)}${body_text.length > 260 ? '\u2026' : ''}` : null);\n\nreturn [{\n  form_code,\n  source_code,\n  raw_payload: env.raw,\n  email,\n  full_name: ai?.contact?.full_name || env.from_name || '',\n  message: body_text,\n  external_id,\n\n  classification,\n\n  channel,\n  subject,\n  sent_at,\n  body_html,\n\n  company_name: company?.name || null,\n  company_website: normUrl(company?.website || null),\n  preferred_lang: ai?.contact?.preferred_lang || null,\n  timezone: ai?.contact?.timezone || null,\n  title: ai?.contact?.title || null,\n\n  lead_intent,\n  attachments: env.attachments || [],\n  dedupe_key: `${email}:${source_code}`,\n  sales_summary: summary,\n  ai_errors: aiErrors,\n  ai_raw_text: ai?.ai_raw_text || null,\n  intake_flags: Array.from(intakeFlags),\n  classification_source: aiErrors.length ? 'llm_with_warnings' : 'llm'\n}];"
+        "jsCode": "// Node: 1e. Validate & Shape (Code)\n\n// === small, dependency-free hash ===\nfunction fnv1a64(str) {\n  let hash = 0xcbf29ce484222325n;        // FNV offset basis\n  const prime = 0x100000001b3n;          // FNV prime\n  for (let i = 0; i < str.length; i++) {\n    hash ^= BigInt(str.charCodeAt(i));\n    hash = (hash * prime) & 0xffffffffffffffffn; // 64-bit overflow\n  }\n  return hash.toString(16).padStart(16, '0');    // 16 hex chars (64-bit)\n}\n\nconst env = $('0a. Build Envelope').item.json;\nconst ai  = $('1d. Enforce Intake Policy').item.json;\n\nfunction normUrl(u){ try { return u ? new URL(u).toString() : null; } catch { return null; } }\nfunction fromDomain(domain) {\n  if (!domain) return null;\n  const base = domain.replace(/^www\\./, '');\n  const name = base.split('.')[0];\n  if (!name) return null;\n  return {\n    name: name.charAt(0).toUpperCase() + name.slice(1),\n    website: `https://${base}`,\n  };\n}\n\nconst email = (ai?.contact?.email || env.from_email || '').toLowerCase().trim() || null;\nif (!email) {\n  const message = 'Email is required';\n  const error = new Error(message);\n  error.cause = { kind: 'missing_email', ai_errors: ai?.ai_errors || [] };\n  throw error;\n}\n\nconst form_code   = env.form_code || null;\nconst source_code = env.source_code || 'email_inbox';\nconst channel     = env.trigger === 'gmail' ? 'email' : 'form';\n\nconst msg       = ai?.message || {};\nconst subject   = msg.subject || env.subject || null;\nconst sent_at   = new Date(msg.sent_at || env.sent_at || Date.now()).toISOString();\nconst body_text = (msg.plain ?? env.body_text ?? '').toString();\nconst body_html = msg.html ?? env.body_html ?? null;\n\nconst rawStable = env.raw ? JSON.stringify(env.raw) : JSON.stringify({\n  source_code, form_code, email, subject, body_text\n});\nconst sig = fnv1a64(rawStable);\n\nconst external_id =\n  env.external_message_id\n  || (form_code ? `form-${form_code}-${sig}`\n                : `auto-${source_code}-${sig}`);\n\nconst aiCompany   = ai?.company || {};\nconst domCompany  = fromDomain(env.from_domain);\nconst company     = aiCompany?.name ? aiCompany : domCompany || null;\n\nconst classification = ai?.classification || {};\nconst lead_intent    = classification.intent || 'generic';\nconst aiErrors = Array.isArray(ai?.ai_errors) ? ai.ai_errors.filter(Boolean) : [];\n\nconst intakeFlags = new Set(Array.isArray(ai?.tags) ? ai.tags.filter(Boolean) : []);\nif (aiErrors.length) intakeFlags.add('ai_parse_warning');\n\nconst summary = ai?.shortSummaryForSales\n  || (body_text ? `${body_text.slice(0, 260)}${body_text.length > 260 ? '…' : ''}` : null);\n\nreturn [{\n  form_code,\n  source_code,\n  raw_payload: env.raw,\n  email,\n  full_name: ai?.contact?.full_name || env.from_name || '',\n  message: body_text,\n  external_id,\n\n  classification,\n\n  channel,\n  subject,\n  sent_at,\n  body_html,\n\n  company_name: company?.name || null,\n  company_website: normUrl(company?.website || null),\n  preferred_lang: ai?.contact?.preferred_lang || null,\n  timezone: ai?.contact?.timezone || null,\n  title: ai?.contact?.title || null,\n\n  lead_intent,\n  attachments: env.attachments || [],\n  dedupe_key: `${email}:${source_code}`,\n  sales_summary: summary,\n  ai_errors: aiErrors,\n  ai_raw_text: ai?.ai_raw_text || null,\n  intake_flags: Array.from(intakeFlags),\n  classification_source: aiErrors.length ? 'llm_with_warnings' : 'llm'\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1024,
-        48
-      ],
-      "id": "106905f6-d061-4996-ad96-a17ddb6cf7da",
+      "position": [-7120, 176],
+      "id": "dc66744e-44cc-4f8d-9c26-0958b0e9c42f",
       "name": "1e. Validate & Shape"
     },
     {
@@ -230,27 +197,21 @@
       "name": "IF: Company Name Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        -96,
-        112
-      ],
-      "id": "e72cf47e-bd0c-476b-9bce-9e1abe44fe73"
+      "position": [-6192, 240],
+      "id": "fe8aa7df-e9bf-4db1-a113-1455fc60ce84"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH ins AS (\n  INSERT INTO companies (name, website)\n  SELECT $1, $2\n  -- \u0412\u0430\u0436\u043d\u043e: ON CONFLICT \u0442\u0435\u043f\u0435\u0440\u044c \u043f\u043e \u043f\u043e\u043b\u044e website!\n  ON CONFLICT (website) DO UPDATE\n  SET\n    -- \u0415\u0441\u043b\u0438 \u0443 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044e\u0449\u0435\u0439 \u043a\u043e\u043c\u043f\u0430\u043d\u0438\u0438 \u0438\u043c\u044f \u0431\u044b\u043b\u043e \u043f\u0443\u0441\u0442\u043e\u0435, \u0430 \u0443 \u043d\u043e\u0432\u043e\u0439 \u0435\u0441\u0442\u044c, \u043e\u0431\u043d\u043e\u0432\u0438\u043c \u0435\u0433\u043e\n    name = COALESCE(companies.name, EXCLUDED.name),\n    updated_at = NOW()\n  RETURNING id\n)\nSELECT id AS company_id FROM ins\nUNION ALL\n-- \u042d\u0442\u043e\u0442 SELECT \u043d\u0443\u0436\u0435\u043d, \u0447\u0442\u043e\u0431\u044b \u0432\u0435\u0440\u043d\u0443\u0442\u044c ID, \u0435\u0441\u043b\u0438 \u0441\u0440\u0430\u0431\u043e\u0442\u0430\u043b DO UPDATE\nSELECT id FROM companies WHERE website = $2\nLIMIT 1;",
+        "query": "WITH ins AS (\n  INSERT INTO companies (name, website)\n  SELECT $1, $2\n  -- Важно: ON CONFLICT теперь по полю website!\n  ON CONFLICT (website) DO UPDATE\n  SET\n    -- Если у существующей компании имя было пустое, а у новой есть, обновим его\n    name = COALESCE(companies.name, EXCLUDED.name),\n    updated_at = NOW()\n  RETURNING id\n)\nSELECT id AS company_id FROM ins\nUNION ALL\n-- Этот SELECT нужен, чтобы вернуть ID, если сработал DO UPDATE\nSELECT id FROM companies WHERE website = $2\nLIMIT 1;",
         "options": {
           "queryReplacement": "={{ [ $('1e. Validate & Shape').item.json.company_name, $('1e. Validate & Shape').item.json.company_website ] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        560,
-        -144
-      ],
-      "id": "41850ee9-8ceb-474e-9e50-0821966e044b",
+      "position": [-5536, -32],
+      "id": "6cbc0f48-d070-443d-b83f-a2350e64f2f2",
       "name": "5a. Upsert Company by Website",
       "credentials": {
         "postgres": {
@@ -273,11 +234,8 @@
       "name": "IF: Website Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        224,
-        -16
-      ],
-      "id": "d433c3cc-6b55-4555-badf-effdeac17d49"
+      "position": [-5872, 96],
+      "id": "8406da3f-ed3d-4a2d-b3ae-9bc11ee9f0be"
     },
     {
       "parameters": {
@@ -289,11 +247,8 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        560,
-        80
-      ],
-      "id": "c73e8447-657a-42e2-be00-555bd32083a6",
+      "position": [-5536, 208],
+      "id": "96898aaf-c442-474f-bd35-365e3a2270eb",
       "name": "5a. Upsert Company by Name",
       "credentials": {
         "postgres": {
@@ -313,11 +268,8 @@
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [
-        864,
-        192
-      ],
-      "id": "5ac7cb56-6292-428d-bebd-fc1ff2ab3529",
+      "position": [-5232, 320],
+      "id": "17a7bf1b-7f69-4f84-9ccb-86a45c9c4571",
       "name": "Merge company data"
     },
     {
@@ -331,11 +283,8 @@
       "name": "1. Find Contact by Email",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1104,
-        208
-      ],
-      "id": "913c0292-745a-4c0b-9803-63c0278f5cd8",
+      "position": [-4992, 336],
+      "id": "c5168745-59b2-419a-b220-195ed9f964bd",
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
@@ -358,11 +307,8 @@
       "name": "2. IF: Contact Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        1344,
-        208
-      ],
-      "id": "8028f341-42f9-4aec-843d-edf15274131e"
+      "position": [-4752, 336],
+      "id": "7b0df899-be89-40ad-8a97-2a20e6ebaab4"
     },
     {
       "parameters": {
@@ -375,11 +321,8 @@
       "name": "3. Update Contact",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1632,
-        64
-      ],
-      "id": "f399bb14-e176-4bc4-82c7-a090b96b47ae",
+      "position": [-4464, 192],
+      "id": "ca852176-75c6-4205-afc8-6e8edc6a6f0c",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -398,11 +341,8 @@
       "name": "4a. Create Contact Record",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1632,
-        272
-      ],
-      "id": "7e3552c9-c242-4047-bc81-8ab71b6402b5",
+      "position": [-4464, 400],
+      "id": "5830abaf-a52f-455a-b129-4a3e7d46d7a7",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -421,11 +361,8 @@
       "name": "4b. Add Contact Email",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        1904,
-        368
-      ],
-      "id": "123bfdbf-4ec8-4afd-b3d9-c29e7351c7f4",
+      "position": [-4192, 496],
+      "id": "4f56aa81-2225-4f69-b0d1-518491f830bb",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -444,11 +381,8 @@
       "name": "5. Merge Contact Result",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [
-        2128,
-        176
-      ],
-      "id": "d37b97ea-01ee-48c2-bfb7-5468e15b0a34"
+      "position": [-3968, 304],
+      "id": "13beca1c-c9cc-4b87-9a2c-235e0085486f"
     },
     {
       "parameters": {
@@ -461,11 +395,8 @@
       "name": "6. Upsert Lead",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        2304,
-        176
-      ],
-      "id": "4082a424-2286-4734-b762-8fd1e6d3ecfc",
+      "position": [-3792, 304],
+      "id": "ec65eb47-69c5-4b84-9e6d-fa3e898f92be",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -484,11 +415,8 @@
       "name": "7a. Start Conversation",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        2512,
-        176
-      ],
-      "id": "446dffef-a44c-4f42-ae6f-c6375af27180",
+      "position": [-3584, 304],
+      "id": "57269ee4-bad6-4b32-936c-7bece4ccec4a",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -499,7 +427,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (\n  conversation_id, direction, medium, sender_contact_id,\n  body, body_html, message_ts, external_message_id, meta\n)\nVALUES (\n  (SELECT id FROM conversations WHERE lead_id=$1 LIMIT 1),\n  'inbound',\n  $2::channel,\n  $3,\n  $4,\n  $5,\n  $6::timestamptz,\n  $7,            -- \u0442\u0443\u0442 \u0443\u0436\u0435 \u0431\u0443\u0434\u0435\u0442 submission_id \u0434\u043b\u044f \u0444\u043e\u0440\u043c, \u0438 Message-ID \u0434\u043b\u044f Gmail\n  $8::jsonb\n)\nON CONFLICT (external_message_id) DO NOTHING\nRETURNING id AS message_id;",
+        "query": "INSERT INTO messages (\n  conversation_id, direction, medium, sender_contact_id,\n  body, body_html, message_ts, external_message_id, meta\n)\nVALUES (\n  (SELECT id FROM conversations WHERE lead_id=$1 LIMIT 1),\n  'inbound',\n  $2::channel,\n  $3,\n  $4,\n  $5,\n  $6::timestamptz,\n  $7,            -- тут уже будет submission_id для форм, и Message-ID для Gmail\n  $8::jsonb\n)\nON CONFLICT (external_message_id) DO NOTHING\nRETURNING id AS message_id;",
         "options": {
           "queryReplacement": "={{ [\n  $('6. Upsert Lead').item.json.lead_id,\n  $('1e. Validate & Shape').item.json.channel,\n  $('5. Merge Contact Result').item.json.contact_id,\n  $('1e. Validate & Shape').item.json.message || '',\n  $('1e. Validate & Shape').item.json.body_html || null,\n  $('1e. Validate & Shape').item.json.sent_at,\n  $('1e. Validate & Shape').item.json.external_id || null,\n  JSON.stringify({ tags: $('1e. Validate & Shape').item.json.tags || [], ai_intent: $('1e. Validate & Shape').item.json.lead_intent || null })\n] }}"
         }
@@ -507,11 +435,8 @@
       "name": "7b. Insert First Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        2720,
-        176
-      ],
-      "id": "da584c32-64e2-4288-89ea-7891c35aa3be",
+      "position": [-3376, 304],
+      "id": "2d82a1c3-2829-4f36-bbc5-fe6d3c3feb2e",
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -530,11 +455,8 @@
       "name": "7d. Insert Attachment",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        3312,
-        176
-      ],
-      "id": "b5682b83-64d2-48ac-b5fc-4afe61778411",
+      "position": [-2784, 304],
+      "id": "93b6e375-fc40-4615-999e-a7fb1f5b4d2b",
       "alwaysOutputData": true,
       "credentials": {
         "postgres": {
@@ -561,11 +483,8 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        2912,
-        176
-      ],
-      "id": "c68e15cd-4de1-475a-8809-9178c123704f",
+      "position": [-3184, 304],
+      "id": "27bdc9ce-c251-4ea3-8f67-223f7bf4a7eb",
       "name": "Edit Fields"
     },
     {
@@ -577,11 +496,8 @@
       "name": "7c. Split Out Attachments",
       "type": "n8n-nodes-base.itemLists",
       "typeVersion": 1,
-      "position": [
-        3104,
-        176
-      ],
-      "id": "6c68d5a7-45e2-4f94-bcd6-a5679a13ecfb",
+      "position": [-2992, 304],
+      "id": "f604d087-cecc-4c36-8efe-c31661ca486f",
       "alwaysOutputData": true
     },
     {
@@ -594,11 +510,8 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        3520,
-        176
-      ],
-      "id": "86a37712-0ee4-49f9-aa52-53b5fabbad55",
+      "position": [-2576, 304],
+      "id": "71334d55-4983-47ba-a3b2-ae467f302c97",
       "name": "Send a text message",
       "webhookId": "4aed2b64-9a3d-4b01-8a28-6bb4e82b21df",
       "credentials": {
@@ -623,11 +536,8 @@
       "name": "8a. Is Client Request?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        3744,
-        176
-      ],
-      "id": "9d90515d-70d2-4674-bbef-512f3cd0426c"
+      "position": [-2352, 304],
+      "id": "58226aef-237b-4acd-a167-d2952fe9937b"
     },
     {
       "parameters": {
@@ -636,11 +546,8 @@
       "name": "[PREP] Build Subworkflow JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        4016,
-        160
-      ],
-      "id": "a4a19912-97dd-4a9b-a697-33755e692ac7"
+      "position": [-2080, 288],
+      "id": "76f36e1c-3596-43d0-9c71-49c528bc4599"
     },
     {
       "parameters": {
@@ -648,7 +555,7 @@
           "__rl": true,
           "value": "DbI3spLHIvAdKew2",
           "mode": "list",
-          "cachedResultName": "1.1 \u0414\u0430\u043b\u044c\u043d\u0435\u0439\u0448\u0438\u0439 \u0434\u0438\u0430\u043b\u043e\u0433 \u043f\u043e \u0437\u0430\u044f\u0432\u043a\u0435 \u043d\u0430 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0443/\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u044e"
+          "cachedResultName": "1.1 Дальнейший диалог по заявке на разработку/консультацию"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -665,35 +572,21 @@
       "name": "[HOP] Trigger Dev Request Processor",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        4240,
-        160
-      ],
-      "id": "5b51730a-a619-4997-9f23-88412de02b7f",
+      "position": [-1856, 288],
+      "id": "59b8b0dc-cf51-4d06-b257-fd2b0e36af18",
       "continueOnFail": true
     },
     {
-      "id": "5e6e6209-3a7a-4149-9a03-45046175d3a9",
+      "parameters": {
+        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst company = $('Merge company data').item.json;\n\nconst flags = new Set(intake.intake_flags || []);\nconst aiErrors = Array.isArray(intake.ai_errors) ? intake.ai_errors.filter(Boolean) : [];\nif (aiErrors.length) {\n  flags.add('ai_warning');\n}\n\nconst summary = intake.sales_summary || (intake.message ? `${intake.message.slice(0, 200)}${intake.message.length > 200 ? '…' : ''}` : 'Нет короткого резюме — проверьте диалог.');\nconst lines = [];\nlines.push('🚀 Новый лид: запрос на разработку / консультацию');\nlines.push(`Lead ID: ${lead.lead_id}`);\nlines.push(`Contact: ${(contact.full_name || intake.full_name || '—')} <${intake.email}>`);\nif (company.company_id) {\n  lines.push(`Company: ${(company.company_name || '—')} (${company.company_website || 'нет сайта'})`);\n}\nlines.push(`Intent: ${intake.lead_intent} | Classification: ${(intake.classification?.label || 'n/a')}`);\nlines.push('—');\nlines.push(summary);\n\nif (flags.size) {\n  lines.push('—');\n  lines.push(`⚠️ Flags: ${Array.from(flags).join(', ')}`);\n}\nif (aiErrors.length) {\n  const preview = aiErrors.map(e => e?.code || 'error').join(', ');\n  lines.push(`⚠️ AI warnings: ${preview}`);\n}\n\nreturn [{ text: lines.join('\\n') }];"
+      },
+      "id": "ace7f031-9fd4-48be-8da8-b6a8b17fa489",
       "name": "7e. Build Telegram Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        3312,
-        176
-      ],
-      "parameters": {
-        "jsCode": "const intake = $('1e. Validate & Shape').item.json;\nconst lead = $('6. Upsert Lead').item.json;\nconst contact = $('5. Merge Contact Result').item.json;\nconst company = $('Merge company data').item.json;\n\nconst flags = new Set(intake.intake_flags || []);\nconst aiErrors = Array.isArray(intake.ai_errors) ? intake.ai_errors.filter(Boolean) : [];\nif (aiErrors.length) {\n  flags.add('ai_warning');\n}\n\nconst summary = intake.sales_summary || (intake.message ? `${intake.message.slice(0, 200)}${intake.message.length > 200 ? '\u2026' : ''}` : '\u041d\u0435\u0442 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0433\u043e \u0440\u0435\u0437\u044e\u043c\u0435 \u2014 \u043f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0434\u0438\u0430\u043b\u043e\u0433.');\nconst lines = [];\nlines.push('\ud83d\ude80 \u041d\u043e\u0432\u044b\u0439 \u043b\u0438\u0434: \u0437\u0430\u043f\u0440\u043e\u0441 \u043d\u0430 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0443 / \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u044e');\nlines.push(`Lead ID: ${lead.lead_id}`);\nlines.push(`Contact: ${(contact.full_name || intake.full_name || '\u2014')} <${intake.email}>`);\nif (company.company_id) {\n  lines.push(`Company: ${(company.company_name || '\u2014')} (${company.company_website || '\u043d\u0435\u0442 \u0441\u0430\u0439\u0442\u0430'})`);\n}\nlines.push(`Intent: ${intake.lead_intent} | Classification: ${(intake.classification?.label || 'n/a')}`);\nlines.push('\u2014');\nlines.push(summary);\n\nif (flags.size) {\n  lines.push('\u2014');\n  lines.push(`\u26a0\ufe0f Flags: ${Array.from(flags).join(', ')}`);\n}\nif (aiErrors.length) {\n  const preview = aiErrors.map(e => e?.code || 'error').join(', ');\n  lines.push(`\u26a0\ufe0f AI warnings: ${preview}`);\n}\n\nreturn [{ text: lines.join('\\n') }];"
-      }
+      "position": [-2784, 304]
     },
     {
-      "id": "760d605a-adc7-4de1-a5cb-85f8550ffc9a",
-      "name": "8b. Log Non-client Intake",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        3968,
-        48
-      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'intake_routed_non_client', $2::jsonb);",
@@ -701,6 +594,11 @@
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ lead_intent: $('1e. Validate & Shape').item.json.lead_intent, classification_label: $('1e. Validate & Shape').item.json.classification.label, intake_flags: $('1e. Validate & Shape').item.json.intake_flags, ai_errors: $('1e. Validate & Shape').item.json.ai_errors, source_code: $('0a. Build Envelope').item.json.source_code, form_code: $('0a. Build Envelope').item.json.form_code }) ] }}"
         }
       },
+      "id": "c55c5ea3-2a05-47e3-b804-178cfbdbb1b3",
+      "name": "8b. Log Non-client Intake",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-2080, 528],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -709,14 +607,6 @@
       }
     },
     {
-      "id": "0ca34a2b-6ca0-4a4f-b0bf-9ebcdd695519",
-      "name": "8c. Dev Processor Failed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        4496,
-        160
-      ],
       "parameters": {
         "conditions": {
           "string": [
@@ -726,17 +616,14 @@
             }
           ]
         }
-      }
+      },
+      "id": "c59de462-3c88-47f7-89b8-fea09a68a17c",
+      "name": "8c. Dev Processor Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-1600, 288]
     },
     {
-      "id": "5bdf3013-bfc1-490e-8749-e9fdb217ffed",
-      "name": "8d. Log Dev Processor Success",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        4720,
-        112
-      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_processor_triggered', $2::jsonb);",
@@ -744,6 +631,11 @@
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ conversation_id: $('7a. Start Conversation').item.json.conversation_id, workflow_execution_id: $json.executionId ?? null, lead_intent: $('1e. Validate & Shape').item.json.lead_intent, intake_flags: $('1e. Validate & Shape').item.json.intake_flags }) ] }}"
         }
       },
+      "id": "b53be87e-d6d5-446e-bf74-8a7912c1cc66",
+      "name": "8d. Log Dev Processor Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-1376, 112],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -752,14 +644,6 @@
       }
     },
     {
-      "id": "97cf5fd4-9d28-4d01-8203-a759059e7160",
-      "name": "8e. Log Dev Processor Error",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        4720,
-        208
-      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO pipeline_events (entity_type, entity_id, event_type, data)\nVALUES ('lead', $1, 'dev_request_processor_failed', $2::jsonb);",
@@ -767,6 +651,11 @@
           "queryReplacement": "={{ [ $('6. Upsert Lead').item.json.lead_id, JSON.stringify({ conversation_id: $('7a. Start Conversation').item.json.conversation_id, workflow_execution_id: $json.executionId ?? null, error: $json.error, lead_intent: $('1e. Validate & Shape').item.json.lead_intent, intake_flags: $('1e. Validate & Shape').item.json.intake_flags }) ] }}"
         }
       },
+      "id": "5594b334-7914-4328-93c6-d12aa3c27bc9",
+      "name": "8e. Log Dev Processor Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-1376, 336],
       "credentials": {
         "postgres": {
           "id": "Q6TYPE7PGoXfCRLa",
@@ -775,21 +664,19 @@
       }
     },
     {
-      "id": "b81d33af-2a85-4d68-9794-31af2ce34a0a",
-      "name": "8f. Alert Dev Processor Error",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        4944,
-        208
-      ],
       "parameters": {
         "chatId": "-1003017940130",
-        "text": "\ud83d\udd25 \u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0434\u043f\u0440\u043e\u0446\u0435\u0441\u0441\u0430 dev_request: {{ $('1e. Validate & Shape').item.json.email }}\n\n{{ $json.error?.message || $json.error || 'Unknown error' }}",
+        "text": "🔥 Ошибка подпроцесса dev_request: {{ $('1e. Validate & Shape').item.json.email }}\n\n{{ $json.error?.message || $json.error || 'Unknown error' }}",
         "additionalFields": {
           "appendAttribution": false
         }
       },
+      "id": "bc391bdf-5110-482f-b7d9-f0c7510feb4b",
+      "name": "8f. Alert Dev Processor Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-1152, 336],
+      "webhookId": "62becdb7-1486-43cc-bc59-c2afd549a169",
       "credentials": {
         "telegramApi": {
           "id": "DIjzBhPLelPnkz7y",
@@ -1041,11 +928,6 @@
         ]
       ]
     },
-    "4b. Add Contact Email": {
-      "main": [
-        []
-      ]
-    },
     "5. Merge Contact Result": {
       "main": [
         [
@@ -1163,22 +1045,22 @@
         ]
       ]
     },
-    "7e. Build Telegram Payload": {
+    "[HOP] Trigger Dev Request Processor": {
       "main": [
         [
           {
-            "node": "Send a text message",
+            "node": "8c. Dev Processor Failed?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "[HOP] Trigger Dev Request Processor": {
+    "7e. Build Telegram Payload": {
       "main": [
         [
           {
-            "node": "8c. Dev Processor Failed?",
+            "node": "Send a text message",
             "type": "main",
             "index": 0
           }
@@ -1203,9 +1085,6 @@
         ]
       ]
     },
-    "8d. Log Dev Processor Success": {
-      "main": []
-    },
     "8e. Log Dev Processor Error": {
       "main": [
         [
@@ -1216,12 +1095,6 @@
           }
         ]
       ]
-    },
-    "8f. Alert Dev Processor Error": {
-      "main": []
-    },
-    "8b. Log Non-client Intake": {
-      "main": []
     }
   },
   "pinData": {},
