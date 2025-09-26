@@ -199,7 +199,7 @@
       "name": "5b. Compose Confirm Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [-832, 256],
+      "position": [-496, 128],
       "id": "01a76057-2e4d-44e6-8c6f-6cdc3df7844b"
     },
     {
@@ -214,7 +214,7 @@
       "name": "5c. Send Confirm Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [-592, 256],
+      "position": [-288, 128],
       "id": "0d8f534f-3a23-4139-8654-93ea90d2d3f1",
       "webhookId": "6d9adc1e-7754-4e15-bbbb-62f213c632ba",
       "credentials": {
@@ -235,7 +235,7 @@
       "name": "5d. Log Confirm Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-352, 256],
+      "position": [-80, 128],
       "id": "9eccc42d-e5f8-49d7-8726-6b33d01a5593",
       "credentials": {
         "postgres": {
@@ -255,7 +255,7 @@
       "name": "5e. Log Confirm Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-112, 256],
+      "position": [160, 128],
       "id": "3eddaba0-15d2-4684-bc24-881a32d95dbb",
       "credentials": {
         "postgres": {
@@ -274,7 +274,7 @@
       "name": "5f. Outcome: Confirmed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [128, 256],
+      "position": [400, 128],
       "id": "dfab2179-d4d5-4c7d-9235-c039bc0b1a01"
     },
     {
@@ -317,7 +317,7 @@
       "name": "6b. Compose Unsub Email",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [-832, -192],
+      "position": [-512, -320],
       "id": "3402c5cb-6d22-43de-9e23-1da1d29efe52"
     },
     {
@@ -332,7 +332,7 @@
       "name": "6c. Send Unsub Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
-      "position": [-592, -192],
+      "position": [-304, -320],
       "id": "6f2878e3-0a8e-45e7-b23a-18afa6108ef7",
       "webhookId": "0fdd5c0c-036a-44e4-a3ad-f6c204399a61",
       "credentials": {
@@ -353,7 +353,7 @@
       "name": "6d. Log Unsub Message",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-352, -192],
+      "position": [-80, -320],
       "id": "71640827-4aac-4377-806a-9f73d5072d74",
       "credentials": {
         "postgres": {
@@ -373,7 +373,7 @@
       "name": "6e. Log Unsub Event",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-112, -192],
+      "position": [160, -320],
       "id": "30c54446-cef9-423a-b4e8-1441f216bd4e",
       "credentials": {
         "postgres": {
@@ -392,7 +392,7 @@
       "name": "6f. Outcome: Unsubscribed",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3,
-      "position": [128, -192],
+      "position": [400, -320],
       "id": "b7295313-3f46-416b-b71f-9e83fce45039"
     },
     {
@@ -404,7 +404,7 @@
       "name": "7. Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [400, 48],
+      "position": [672, -80],
       "id": "4c91166a-9735-4d4f-9374-30e781ecee27"
     },
     {
@@ -418,7 +418,7 @@
       "name": "5a. Load Confirm Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-832, 384],
+      "position": [-816, 256],
       "id": "a6742732-513a-4ada-bf08-887f68a3000f",
       "credentials": {
         "postgres": {
@@ -438,7 +438,7 @@
       "name": "6a. Load Unsub Template",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-832, -320],
+      "position": [-704, -320],
       "id": "e122f270-0256-4a9c-bbe3-5fc4bc8eae04",
       "credentials": {
         "postgres": {
@@ -601,6 +601,39 @@
         ]
       ]
     },
+    "5c. Send Confirm Email": {
+      "main": [
+        [
+          {
+            "node": "5d. Log Confirm Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5d. Log Confirm Message": {
+      "main": [
+        [
+          {
+            "node": "5e. Log Confirm Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5e. Log Confirm Event": {
+      "main": [
+        [
+          {
+            "node": "5f. Outcome: Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "5f. Outcome: Confirmed": {
       "main": [
         [
@@ -639,6 +672,39 @@
         [
           {
             "node": "6c. Send Unsub Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6c. Send Unsub Email": {
+      "main": [
+        [
+          {
+            "node": "6d. Log Unsub Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6d. Log Unsub Message": {
+      "main": [
+        [
+          {
+            "node": "6e. Log Unsub Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6e. Log Unsub Event": {
+      "main": [
+        [
+          {
+            "node": "6f. Outcome: Unsubscribed",
             "type": "main",
             "index": 0
           }
